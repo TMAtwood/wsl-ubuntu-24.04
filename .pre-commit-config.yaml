@@ -1,0 +1,43 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0  # Use the latest stable version
+    hooks:
+      - id: check-added-large-files
+      - id: check-ast
+      - id: check-builtin-literals
+      - id: check-case-conflict
+      - id: check-docstring-first
+      - id: check-executables-have-shebangs
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
+      - id: check-symlinks
+      - id: check-toml
+      - id: check-xml
+      - id: check-yaml
+      - id: debug-statements
+      - id: destroyed-symlinks
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+      - id: forbid-new-submodules
+      - id: forbid-submodules
+      - id: mixed-line-ending
+      - id: name-tests-test
+      - id: no-commit-to-branch
+        args: [--branch, main, --branch, develop]
+      - id: requirements-txt-fixer
+      - id: sort-simple-yaml
+      - id: trailing-whitespace
+
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.35.1  # Use the latest stable version
+    hooks:
+      - id: yamllint
+        args: [--config-file=.yamllint.yaml]
+        files: \.yaml$|\.yml$  # Apply only to YAML files
+
+  # - repo: https://github.com/petalmd/dockerfile-pre-commit
+  #   rev: 'v1.0'  # Use the revision rev you want to point at
+  #   hooks:
+  #     - id: dockerlint
