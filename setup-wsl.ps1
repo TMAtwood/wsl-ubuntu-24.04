@@ -1,12 +1,14 @@
+Write-Host "Starting Podman."
+podman machine start
 Write-Host "Creating directory."
 New-Item -ItemType Directory -Force -Path c:/temp/tmatwood-ubuntu-24.04
 Write-Host "Unregister old distro."
 wsl --unregister tmatwood-ubuntu-24.04
 Write-Host "Remove old image if present."
-docker rm localhost/tmatwood/ubuntu-24.04
-docker run -it -d --name tmatwood-ubuntu-24.04 localhost/tmatwood/ubuntu-24.04:latest
-docker export --output=c:/temp/tmatwood-ubuntu-24.04/tmatwood-ubuntu-24.04.tar tmatwood-ubuntu-24.04
-docker stop tmatwood-ubuntu-24.04
+podman rm localhost/tmatwood/ubuntu-24.04
+podman run -it -d --name tmatwood-ubuntu-24.04 localhost/tmatwood/ubuntu-24.04:latest
+podman export --output=c:/temp/tmatwood-ubuntu-24.04/tmatwood-ubuntu-24.04.tar tmatwood-ubuntu-24.04
+podman stop tmatwood-ubuntu-24.04
 wsl.exe --import tmatwood-ubuntu-24.04 "c:/temp/tmatwood-ubuntu-24.04/" "c:/temp/tmatwood-ubuntu-24.04/tmatwood-ubuntu-24.04.tar" --version 2
 wsl --set-default tmatwood-ubuntu-24.04
 #Copy-Item .wslgconfig "$env:USERPROFILE\.wslgconfig"

@@ -112,8 +112,8 @@ RUN add-apt-repository ppa:kubescape/kubescape \
     && add-apt-repository ppa:dotnet/backports -y \
     && apt-get -y update
 
-RUN wget -O - https://apt.corretto.aws/corretto.key | gpg --dearmor -o /usr/share/keyrings/corretto-keyring.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/corretto-keyring.gpg] https://apt.corretto.aws stable main" | sudo tee /etc/apt/sources.list.d/corretto.list
+# RUN wget -O - https://apt.corretto.aws/corretto.key | sudo gpg --dearmor -o /usr/share/keyrings/corretto-keyring.gpg \
+#     && echo "deb [signed-by=/usr/share/keyrings/corretto-keyring.gpg] https://apt.corretto.aws stable main" | sudo tee /etc/apt/sources.list.d/corretto.list
 
 RUN mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/hashicorp-archive-keyring.gpg \
@@ -307,16 +307,15 @@ RUN apt-get -y update \
 
 RUN apt-get -y update \
     && apt-get install -y --no-install-recommends \
-      python3-dev \
+      python3.11-full \
+      python3.12-full \
+      python3.13-full \
       python3-pip \
-      python3-psutil \
-      python3-venv \
-      python3.11 \
       python3.11-venv \
-      python3.12 \
       python3.12-venv \
-      python3.13 \
-      python3.13-venv \
+      python3.13-venv
+
+RUN apt-get install -y --no-install-recommends \
     && python3.13 --version \
     && python3.12 --version \
     && python3.11 --version \
@@ -329,9 +328,9 @@ RUN apt-get -y update \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3.12 2 \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3.13 1 \
     && sudo update-alternatives --set python /usr/bin/python3.13 \
-    && echo -e "#! /bin/bash\nsudo update-alternatives --set python \"/usr/bin/python3.11\"" > /usr/bin/set-python-11.sh \
-    && echo -e "#! /bin/bash\nsudo update-alternatives --set python \"/usr/bin/python3.12\"" > /usr/bin/set-python-12.sh \
-    && echo -e "#! /bin/bash\nsudo update-alternatives --set python \"/usr/bin/python3.13\"" > /usr/bin/set-python-13.sh \
+    && echo '#!/bin/bash\nsudo update-alternatives --set python "/usr/bin/python3.11"' > /usr/bin/set-python-11.sh \
+    && echo '#!/bin/bash\nsudo update-alternatives --set python "/usr/bin/python3.12"' > /usr/bin/set-python-12.sh \
+    && echo '#!/bin/bash\nsudo update-alternatives --set python "/usr/bin/python3.13"' > /usr/bin/set-python-13.sh \
     && chmod +x /usr/bin/set-python-11.sh \
     && chmod +x /usr/bin/set-python-12.sh \
     && chmod +x /usr/bin/set-python-13.sh \
@@ -393,61 +392,61 @@ RUN .gobrew/bin/gobrew use latest \
 # ████████     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
 #  ██  ██      ██████   ██████   ██████ ██   ██ ███████ ██   ██
 
-WORKDIR /home/root
-USER root
+# WORKDIR /home/root
+# USER root
 
-# Install Docker tooling within WSL2 instead of using Docker-Desktop
-# Adds docker apt key
-RUN mkdir -p /etc/apt/keyrings \
-    && mkdir -p /root/.docker \
-    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
-    # Adds docker apt repository
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null \
-    # Refreshes apt repos
-    && apt-get update \
-    # Installs Docker CE
-    && apt-get install -y --no-install-recommends \
-        containerd.io \
-        docker-buildx-plugin \
-        docker-ce \
-        docker-ce-cli \
-        docker-compose-plugin \
-    # Finds the latest version
-    && switch_version=$(curl -fsSL -o /dev/null -w "%{url_effective}" https://github.com/docker/compose-switch/releases/latest | xargs basename) \
-    # # Downloads the binary
-    && curl -fL -o /usr/local/bin/docker-compose "https://github.com/docker/compose-switch/releases/download/${switch_version}/docker-compose-linux-$(dpkg --print-architecture)" \
-    # # Finds the latest version
-    && wincred_version=$(curl -fsSL -o /dev/null -w "%{url_effective}" https://github.com/docker/docker-credential-helpers/releases/latest | xargs basename) \
-    # # Downloads and extracts the .exe
-    && curl -fL -o /usr/local/bin/docker-credential-wincred.exe "https://github.com/docker/docker-credential-helpers/releases/download/${wincred_version}/docker-credential-wincred-${wincred_version}.windows-$(dpkg --print-architecture).exe"\
-    # # Assigns execution permission to it
-    && chmod +x /usr/local/bin/docker-credential-wincred.exe \
-    # # Assigns execution permission to it
-    && chmod +x /usr/local/bin/docker-compose \
-    && mkdir -p /home/${USER}/.docker \
-    # && echo '{' >> /home/${USER}/.docker/config.json \
-    # && echo '    "credsStore": "wincred.exe"' >> /home/${USER}/.docker/config.json \
-    # && echo '}' >> /home/${USER}/.docker/config.json \
-    && echo '{' >> /etc/docker/daemon.json \
-    && echo '    "features": {' >> /etc/docker/daemon.json \
-    && echo '        "buildkit": true' >> /etc/docker/daemon.json \
-    && echo '    }' >> /etc/docker/daemon.json \
-    && echo '}' >> /etc/docker/daemon.json \
-    # Download the latest Minikube
-    && curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
-    # Make it executable
-    && chmod +x ./minikube \
-    # Move it to your user's executable PATH
-    && mv ./minikube /usr/local/bin/ \
-    # Set the driver version to Docker
-    && minikube config set driver docker \
-    # Download the latest Kubectl
-    && curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"\
-    # Make it executable
-    && chmod +x ./kubectl \
-    # Move it to your user's executable PATH
-    && mv ./kubectl /usr/local/bin/ \
-    && chmod +x ~/.docker
+# # Install Docker tooling within WSL2 instead of using Docker-Desktop
+# # Adds docker apt key
+# RUN mkdir -p /etc/apt/keyrings \
+#     && mkdir -p /root/.docker \
+#     && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+#     # Adds docker apt repository
+#     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null \
+#     # Refreshes apt repos
+#     && apt-get update \
+#     # Installs Docker CE
+#     && apt-get install -y --no-install-recommends \
+#         containerd.io \
+#         docker-buildx-plugin \
+#         docker-ce \
+#         docker-ce-cli \
+#         docker-compose-plugin \
+#     # Finds the latest version
+#     && switch_version=$(curl -fsSL -o /dev/null -w "%{url_effective}" https://github.com/docker/compose-switch/releases/latest | xargs basename) \
+#     # # Downloads the binary
+#     && curl -fL -o /usr/local/bin/docker-compose "https://github.com/docker/compose-switch/releases/download/${switch_version}/docker-compose-linux-$(dpkg --print-architecture)" \
+#     # # Finds the latest version
+#     && wincred_version=$(curl -fsSL -o /dev/null -w "%{url_effective}" https://github.com/docker/docker-credential-helpers/releases/latest | xargs basename) \
+#     # # Downloads and extracts the .exe
+#     && curl -fL -o /usr/local/bin/docker-credential-wincred.exe "https://github.com/docker/docker-credential-helpers/releases/download/${wincred_version}/docker-credential-wincred-${wincred_version}.windows-$(dpkg --print-architecture).exe"\
+#     # # Assigns execution permission to it
+#     && chmod +x /usr/local/bin/docker-credential-wincred.exe \
+#     # # Assigns execution permission to it
+#     && chmod +x /usr/local/bin/docker-compose \
+#     && mkdir -p /home/${USER}/.docker \
+#     # && echo '{' >> /home/${USER}/.docker/config.json \
+#     # && echo '    "credsStore": "wincred.exe"' >> /home/${USER}/.docker/config.json \
+#     # && echo '}' >> /home/${USER}/.docker/config.json \
+#     && echo '{' >> /etc/docker/daemon.json \
+#     && echo '    "features": {' >> /etc/docker/daemon.json \
+#     && echo '        "buildkit": true' >> /etc/docker/daemon.json \
+#     && echo '    }' >> /etc/docker/daemon.json \
+#     && echo '}' >> /etc/docker/daemon.json \
+#     # Download the latest Minikube
+#     && curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
+#     # Make it executable
+#     && chmod +x ./minikube \
+#     # Move it to your user's executable PATH
+#     && mv ./minikube /usr/local/bin/ \
+#     # Set the driver version to Docker
+#     && minikube config set driver docker \
+#     # Download the latest Kubectl
+#     && curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"\
+#     # Make it executable
+#     && chmod +x ./kubectl \
+#     # Move it to your user's executable PATH
+#     && mv ./kubectl /usr/local/bin/ \
+#     && chmod +x ~/.docker
 
 
 #  ██  ██      ███    ██ ██    ██  ██████  ███████ ████████     ██████  ██████  ███████ ██████
@@ -511,6 +510,7 @@ RUN sh -c 'echo "deb http://archive.ubuntu.com/ubuntu jammy main universe" > /et
         iproute2 \
         iputils-ping \
         kubescape \
+        less \
         libc6 \
         libgcc-s1 \
         libicu74 \
@@ -571,10 +571,10 @@ RUN apt-get update \
     && update-alternatives --install /usr/bin/java java /usr/lib/jvm/java-17-openjdk-amd64/bin/java 3 \
     && update-alternatives --install /usr/bin/java java /usr/lib/jvm/java-21-openjdk-amd64/bin/java 4 \
     && update-alternatives --set java "/usr/lib/jvm/java-21-openjdk-amd64/bin/java" \
-    && echo -e "#! /bin/bash\nsudo update-alternatives --set java \"/usr/lib/jvm/java-8-openjdk-amd64/bin/java\"" > /usr/bin/set-java-8.sh \
-    && echo -e "#! /bin/bash\nsudo update-alternatives --set java \"/usr/lib/jvm/java-11-openjdk-amd64/bin/java\"" > /usr/bin/set-java-11.sh \
-    && echo -e "#! /bin/bash\nsudo update-alternatives --set java \"/usr/lib/jvm/java-17-openjdk-amd64/bin/java\"" > /usr/bin/set-java-17.sh \
-    && echo -e "#! /bin/bash\nsudo update-alternatives --set java \"/usr/lib/jvm/java-21-openjdk-amd64/bin/java\"" > /usr/bin/set-java-21.sh \
+    && echo '#!/bin/bash\nsudo update-alternatives --set java "/usr/lib/jvm/java-8-openjdk-amd64/bin/java"' > /usr/bin/set-java-8.sh \
+    && echo '#!/bin/bash\nsudo update-alternatives --set java "/usr/lib/jvm/java-11-openjdk-amd64/bin/java"' > /usr/bin/set-java-11.sh \
+    && echo '#!/bin/bash\nsudo update-alternatives --set java "/usr/lib/jvm/java-17-openjdk-amd64/bin/java"' > /usr/bin/set-java-17.sh \
+    && echo '#!/bin/bash\nsudo update-alternatives --set java "/usr/lib/jvm/java-21-openjdk-amd64/bin/java"' > /usr/bin/set-java-21.sh \
     && chmod +x /usr/bin/set-java-8.sh \
     && chmod +x /usr/bin/set-java-11.sh \
     && chmod +x /usr/bin/set-java-17.sh \
@@ -590,7 +590,7 @@ RUN apt-get update \
 WORKDIR /home/root
 USER root
 
-ENV PATH="/home/${USER}/.dotnet/tools:$PATH"
+ENV PATH="/root/.dotnet/tools:$PATH"
 
 RUN dotnet tool install -g coverlet.console \
     && dotnet tool install -g CycloneDX \
@@ -644,12 +644,15 @@ USER ${USER}
 ARG BUILD_DATE $BUILD_DATE
 
 RUN export PATH="${PATH}" \
+    && brew tap spring-io/tap \
     && brew tap tofuutils/tap \
+    && brew install act \
     && brew install bash-git-prompt \
     && brew install bfg \
     && brew install btop \
     && brew install container-structure-test \
     && brew install copa \
+    && brew install cosign \
     && brew install crane \
     && brew install dependency-check \
     && brew install dive \
@@ -657,6 +660,7 @@ RUN export PATH="${PATH}" \
     && brew install gh \
     && brew install gitversion \
     && brew install grype \
+    && brew install hadolint \
     && brew install helm \
     && brew install infracost \
     && brew install linka-cloud/tap/d2vm \
@@ -669,13 +673,12 @@ RUN export PATH="${PATH}" \
     && brew install mkcert \
     && brew install osv-scanner \
     && brew install podman \
+    && brew install spring-boot \
     && brew install syft \
+    && brew install tenv \
     && brew install terraform-docs \
     && brew install terraformer \
-    && brew install terragrunt \
     && brew install terrascan \
-    && brew install tofuenv \
-    && brew install tfenv \
     && brew install tflint \
     && brew install tfsec \
     && brew install tfupdate \
@@ -685,9 +688,8 @@ RUN export PATH="${PATH}" \
     && brew install yamllint \
     && brew install yq \
     && brew upgrade \
-    && tfenv install latest \
-    && tfenv install 1.5.7 \
-    && tfenv use latest
+    && tenv opentofu install latest \
+    && tenv opentofu use latest
 
 
 #  ██  ██      ███████ ██      ██    ██ ██     ██  █████  ██    ██
@@ -704,7 +706,10 @@ RUN FLYWAY_REPO="https://github.com/flyway/flyway" \
     && export LATEST_VERSION=$(curl -s https://api.github.com/repos/flyway/flyway/releases/latest | jq -r '.tag_name') \
     && FLYWAY_VERSION=${LATEST_VERSION##*-} \
     && echo "Flyway version is $FLYWAY_VERSION." \
-    && wget -qO- https://download.red-gate.com/maven/release/org/flywaydb/enterprise/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz | tar -xvz && sudo ln -s `pwd`/flyway-${FLYWAY_VERSION}/flyway /usr/local/bin \
+    && wget https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz -O flyway.tar.gz | file flyway.tar.gz \
+    && tar -xvzf flyway.tar.gz \
+    && sudo ln -s $(pwd)/flyway-${FLYWAY_VERSION}/flyway /usr/local/bin/flyway \
+    && rm flyway.tar.gz \
     && flyway -v
 
 
@@ -731,6 +736,21 @@ RUN CODEQL_REPO="https://github.com/github/codeql-action" \
     && codeql --version
 
 
+#  ██  ██      ██    ██ ███████ ███████ ██████   ██████   ██  ██████   ██████   ██    ███████ ███████ ██████  ██    ██ ██  ██████ ███████
+# ████████     ██    ██ ██      ██      ██   ██ ██    ██ ███ ██  ████ ██  ████ ███    ██      ██      ██   ██ ██    ██ ██ ██      ██
+#  ██  ██      ██    ██ ███████ █████   ██████  ██ ██ ██  ██ ██ ██ ██ ██ ██ ██  ██    ███████ █████   ██████  ██    ██ ██ ██      █████
+# ████████     ██    ██      ██ ██      ██   ██ ██ ██ ██  ██ ████  ██ ████  ██  ██         ██ ██      ██   ██  ██  ██  ██ ██      ██
+#  ██  ██       ██████  ███████ ███████ ██   ██  █ ████   ██  ██████   ██████   ██ ██ ███████ ███████ ██   ██   ████   ██  ██████ ███████
+
+USER root
+WORKDIR /home/root
+
+RUN mkdir -p /etc/systemd/system/user@1001.service.d \
+    && echo "[Service]" >> /etc/systemd/system/user@1001.service.d/override.conf \
+    && echo "ExecStartPre=" >> /etc/systemd/system/user@1001.service.d/override.conf \
+    && systemctl enable user@1001.service
+
+
 #  ██  ██      ██████  ██    ██ ████████ ██   ██  ██████  ███    ██     ████████  ██████   ██████  ██      ███████
 # ████████     ██   ██  ██  ██     ██    ██   ██ ██    ██ ████   ██        ██    ██    ██ ██    ██ ██      ██
 #  ██  ██      ██████    ████      ██    ███████ ██    ██ ██ ██  ██        ██    ██    ██ ██    ██ ██      ███████
@@ -740,11 +760,11 @@ RUN CODEQL_REPO="https://github.com/github/codeql-action" \
 WORKDIR /home/${USER}
 USER ${USER}
 
-RUN python -m pip install --upgrade pip \
-    && python -m pip install \
-    checkov \
-    detect-secrets \
-    pre-commit
+RUN python -m pip install --upgrade --break-system-packages pip \
+    && python -m pip install --break-system-packages \
+      checkov \
+      detect-secrets \
+      pre-commit
 
 
 #  ██  ██      ███████ ██ ███    ██  █████  ██          ███████ ███████ ████████ ██    ██ ██████
@@ -758,7 +778,9 @@ WORKDIR /home/root
 
 RUN apt-get -y update \
     && apt-get -y upgrade \
-    && echo "export PATH=\"${PATH}\"\n" >> /home/${USER}/.bashrc
+    && echo "export PATH=\"${PATH}\"\n" >> /home/${USER}/.bashrc \
+    # Needed for Podman shared mount warning
+    && echo "/   /   ext4   defaults,shared   0   1" >> /etc/fstab
 
 RUN echo "if [ -f "/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share/gitprompt.sh" ]; then" >> /home/${USER}/.bashrc \
     && echo "  __GIT_PROMPT_DIR="/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share"" >> /home/${USER}/.bashrc \
@@ -784,7 +806,9 @@ RUN mkdir -p /home/${USER}/.ssh \
     && echo "[storage]" >> /home/${USER}/.config/containers/storage.conf \
     && echo "driver = \"overlay\"" >> /home/${USER}/.config/containers/storage.conf \
     && echo "runroot = \"/var/run/containers/storage\"" >> /etc/containers/storage.conf \
-    && echo "graphroot = \"/var/lib/containers/storage\"" >> /etc/containers/storage.conf
+    && echo "graphroot = \"/var/lib/containers/storage\"" >> /etc/containers/storage.conf \
+    && mkdir -p /run/user/1001/bus \
+    && chown -R ${USER}:${GROUP} /home/${USER}
 
 USER ${USER}
 WORKDIR /home/${USER}
