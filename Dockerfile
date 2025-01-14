@@ -510,6 +510,7 @@ RUN sh -c 'echo "deb http://archive.ubuntu.com/ubuntu jammy main universe" > /et
         iproute2 \
         iputils-ping \
         kubescape \
+        less \
         libc6 \
         libgcc-s1 \
         libicu74 \
@@ -686,7 +687,9 @@ RUN export PATH="${PATH}" \
     && brew install uv \
     && brew install yamllint \
     && brew install yq \
-    && brew upgrade
+    && brew upgrade \
+    && tenv opentofu install latest \
+    && tenv opentofu use latest
 
 
 #  ██  ██      ███████ ██      ██    ██ ██     ██  █████  ██    ██
@@ -731,6 +734,21 @@ RUN CODEQL_REPO="https://github.com/github/codeql-action" \
     && ln -s /usr/local/bin/codeql/codeql /usr/bin/codeql \
     && rm codeql-bundle-linux64.tar.gz \
     && codeql --version
+
+
+#  ██  ██      ██    ██ ███████ ███████ ██████   ██████   ██  ██████   ██████   ██    ███████ ███████ ██████  ██    ██ ██  ██████ ███████
+# ████████     ██    ██ ██      ██      ██   ██ ██    ██ ███ ██  ████ ██  ████ ███    ██      ██      ██   ██ ██    ██ ██ ██      ██
+#  ██  ██      ██    ██ ███████ █████   ██████  ██ ██ ██  ██ ██ ██ ██ ██ ██ ██  ██    ███████ █████   ██████  ██    ██ ██ ██      █████
+# ████████     ██    ██      ██ ██      ██   ██ ██ ██ ██  ██ ████  ██ ████  ██  ██         ██ ██      ██   ██  ██  ██  ██ ██      ██
+#  ██  ██       ██████  ███████ ███████ ██   ██  █ ████   ██  ██████   ██████   ██ ██ ███████ ███████ ██   ██   ████   ██  ██████ ███████
+
+USER root
+WORKDIR /home/root
+
+RUN mkdir -p /etc/systemd/system/user@1001.service.d \
+    && echo "[Service]" >> /etc/systemd/system/user@1001.service.d/override.conf \
+    && echo "ExecStartPre=" >> /etc/systemd/system/user@1001.service.d/override.conf \
+    && systemctl enable user@1001.service
 
 
 #  ██  ██      ██████  ██    ██ ████████ ██   ██  ██████  ███    ██     ████████  ██████   ██████  ██      ███████

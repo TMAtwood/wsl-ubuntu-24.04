@@ -1,3 +1,5 @@
+Write-Host "Starting Podman."
+podman machine start
 Write-Host "Creating directory."
 New-Item -ItemType Directory -Force -Path c:/temp/tmatwood-ubuntu-24.04
 Write-Host "Unregister old distro."
