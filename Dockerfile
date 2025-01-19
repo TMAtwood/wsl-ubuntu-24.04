@@ -587,10 +587,10 @@ RUN apt-get update \
 # ████████        ██  ██ ██ ██         ██           ██    ██    ██ ██    ██ ██           ██
 #  ██  ██      ██ ██   ████ ███████    ██           ██     ██████   ██████  ███████ ███████
 
-WORKDIR /home/root
-USER root
+WORKDIR /home/${USER}
+USER ${USER}
 
-ENV PATH="/root/.dotnet/tools:$PATH"
+ENV PATH="/home/${USER}/.dotnet/tools:$PATH"
 
 RUN dotnet tool install -g coverlet.console \
     && dotnet tool install -g CycloneDX \
@@ -619,7 +619,12 @@ RUN dotnet tool install -g coverlet.console \
 WORKDIR /home/root
 USER root
 
-RUN echo 'alias k="kubectl"' >> /home/${USER}/.bashrc \
+RUN echo 'alias d="docker"\n' >> /home/${USER}/.bashrc \
+    && echo 'alias dc="docker-compose"\n' >> /home/${USER}/.bashrc \
+    && echo 'alias k="kubectl"' >> /home/${USER}/.bashrc \
+    && echo 'alias p="podman"' >> /home/${USER}/.bashrc \
+    && echo 'alias pc="podman compose"' >> /home/${USER}/.bashrc \
+    && echo 'alias podman-compose="podman compose"' >> /home/${USER}/.bashrc \
     && echo 'alias tf="tofu"\n' >> /home/${USER}/.bashrc \
     && echo 'eval $(ssh-agent)' >> /home/${USER}/.bashrc \
     && echo 'export BROWSER=wslview' >> /home/${USER}/.bashrc
