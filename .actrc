@@ -13,5 +13,5 @@
 # Container architecture (use host architecture)
 --container-architecture linux/amd64
 
-# Disable daemon socket binding if using Podman
---container-daemon-socket -
+# Use Podman socket for Docker API compatibility
+--container-daemon-socket unix:///run/podman/podman.sock
