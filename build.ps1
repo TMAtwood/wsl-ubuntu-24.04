@@ -17,8 +17,8 @@ Write-Host "Image name latest: ${IMAGE_NAME_LATEST}"
 
 podman machine start
 
-# Build the image
-podman build --platform linux/amd64 --build-arg BUILD_DATE="${BUILD_DATE}" -t ${IMAGE_NAME_AND_VERSION} .
+# Build the image (using docker format to support SHELL directive)
+podman build --format docker --platform linux/amd64 --build-arg BUILD_DATE="${BUILD_DATE}" -t ${IMAGE_NAME_AND_VERSION} .
 
 # Tag the built image as latest
 podman tag ${IMAGE_NAME_AND_VERSION} ${IMAGE_NAME_LATEST}

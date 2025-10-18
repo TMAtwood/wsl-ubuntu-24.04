@@ -1,6 +1,10 @@
 ARG VERSION $VERSION
 
 FROM ubuntu:24.04
+
+# Set shell options for better error handling
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 LABEL maintainer="Tom Atwood<tom@tmatwood.com>"
 LABEL org.opencontainers.image.version=24.04
 LABEL org.opencontainers.image.ref.name=ubuntu
@@ -76,7 +80,8 @@ RUN apt-get -y update \
       wslu \
       zip \
     && dpkg-reconfigure ca-certificates \
-    && update-ca-certificates
+    && update-ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 
 #  ██  ██       ██████ ██████  ███████  █████  ████████ ███████     ██    ██ ███████ ███████ ██████  ███████
@@ -110,27 +115,30 @@ RUN add-apt-repository ppa:kubescape/kubescape \
     && add-apt-repository ppa:deadsnakes/ppa -y \
     && add-apt-repository ppa:cappelikan/ppa -y \
     && add-apt-repository ppa:dotnet/backports -y \
-    && apt-get -y update
+    && apt-get -y update \
+    && rm -rf /var/lib/apt/lists/*
 
 # RUN wget -O - https://apt.corretto.aws/corretto.key | sudo gpg --dearmor -o /usr/share/keyrings/corretto-keyring.gpg \
 #     && echo "deb [signed-by=/usr/share/keyrings/corretto-keyring.gpg] https://apt.corretto.aws stable main" | sudo tee /etc/apt/sources.list.d/corretto.list
 
 RUN mkdir -p /etc/apt/keyrings \
-    && curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/hashicorp-archive-keyring.gpg \
+    && curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /etc/apt/keyrings/hashicorp-archive-keyring.gpg \
     && chmod 644 /etc/apt/keyrings/hashicorp-archive-keyring.gpg \
-    && echo "deb [signed-by=/etc/apt/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com noble main" | sudo tee /etc/apt/sources.list.d/hashicorp.list \
+    && echo "deb [signed-by=/etc/apt/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com noble main" | tee /etc/apt/sources.list.d/hashicorp.list \
     && apt-get clean \
-    && apt-get update -y
+    && apt-get update -y \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get remove -y 'dotnet*' 'aspnet*' 'netstandard*' \
+RUN (apt-get remove -y 'dotnet*' 'aspnet*' 'netstandard*' || true) \
     && echo "Package: dotnet* aspnet* netstandard*" > /etc/apt/preferences \
     && echo "Pin: origin \"packages.microsoft.com\"" >> /etc/apt/preferences \
     && echo "Pin-Priority: -10" >> /etc/apt/preferences \
     && . /etc/os-release \
-    && wget https://packages.microsoft.com/config/$ID/$VERSION_ID/packages-microsoft-prod.deb -O packages-microsoft-prod.deb \
+    && wget -q https://packages.microsoft.com/config/"$ID"/"$VERSION_ID"/packages-microsoft-prod.deb -O packages-microsoft-prod.deb \
     && dpkg -i packages-microsoft-prod.deb \
     && rm packages-microsoft-prod.deb \
-    && apt-get update
+    && apt-get update \
+    && rm -rf /var/lib/apt/lists/*
 
 
 #  ██  ██      ██     ██ ███████ ██           ██████  ██████  ███    ██ ███████ ██  ██████
@@ -143,7 +151,7 @@ RUN apt-get remove -y 'dotnet*' 'aspnet*' 'netstandard*' \
 RUN echo "[automount]" > /etc/wsl.conf \
     && echo "enable = true" >> /etc/wsl.conf \
     && echo "root = /" >> /etc/wsl.conf \
-    && echo "options = "metadata,uid=1000,gid=1000,umask=0022,fmask=11,case=on"" >> /etc/wsl.conf \
+    && echo 'options = "metadata,uid=1000,gid=1000,umask=0022,fmask=11,case=on"' >> /etc/wsl.conf \
     && echo "mountFsTab = true" >> /etc/wsl.conf \
     && echo "crossDistro = true" >> /etc/wsl.conf \
     && echo "" >> /etc/wsl.conf \
@@ -161,17 +169,17 @@ RUN echo "[automount]" > /etc/wsl.conf \
     && echo "umask = 0022" >> /etc/wsl.conf \
     && echo "" >> /etc/wsl.conf \
     && echo "[interop]" >> /etc/wsl.conf \
-    && echo "enable = true" >> /etc/wsl.conf \
+    && echo "enabled = true" >> /etc/wsl.conf \
     && echo "# The following line appends the windows %Path% at the end of the linux" >> /etc/wsl.conf \
-    && echo "# ubuntu $PATH thus allowing executing windows exeutables like VSCode (code.exe)" >> /etc/wsl.conf \
+    && echo "# ubuntu \$PATH thus allowing executing windows exeutables like VSCode (code.exe)" >> /etc/wsl.conf \
     && echo "# from the Ubuntu terminal" >> /etc/wsl.conf \
     && echo "appendWindowsPath = false" >> /etc/wsl.conf \
     && echo "" >> /etc/wsl.conf \
     && echo "nameserver 1.1.1.1" >> /etc/resolv.conf.override \
     && echo "nameserver 8.8.4.4" >> /etc/resolv.conf.override \
     && echo "nameserver 8.8.8.8" >> /etc/resolv.conf.override \
-    && ln -s /mnt/c/Program\ Files/Git/mingw64/bin/git-credential-manager.exe /usr/bin/git-credential-manager \
-    && ln -s /mnt/c/Program\ Files/Microsoft\ VS\ Code/code.exe  /usr/bin/code
+    && ln -s '/mnt/c/Program Files/Git/mingw64/bin/git-credential-manager.exe' /usr/bin/git-credential-manager \
+    && ln -s '/mnt/c/Program Files/Microsoft VS Code/code.exe' /usr/bin/code
 
 
 #  ██  ██       ██████  ██ ████████      ██████  ██████  ███    ██ ███████ ██  ██████
@@ -243,11 +251,22 @@ ENV PATH="${PATH}:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin
 RUN git clone https://github.com/Homebrew/brew /home/linuxbrew/.linuxbrew/Homebrew \
     && mkdir -p /home/linuxbrew/.linuxbrew/bin \
     && ln -s ../Homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/ \
-    && eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv) \
+    && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
     && brew --version \
     && brew doctor \
-    && brew upgrade \
-    && sudo chown -R ${USER}:${GROUP} /home/linuxbrew/.linuxbrew
+    && brew upgrade
+
+# Fix ownership as root
+USER root
+RUN chown -R linuxbrew:linuxbrew /home/linuxbrew/.linuxbrew
+
+# Create symlinks so root can access brew
+RUN mkdir -p /usr/local/bin \
+    && ln -sf /home/linuxbrew/.linuxbrew/bin/brew /usr/local/bin/brew \
+    && mkdir -p /root/.linuxbrew \
+    && ln -sf /home/linuxbrew/.linuxbrew/bin /root/.linuxbrew/bin \
+    && ln -sf /home/linuxbrew/.linuxbrew/sbin /root/.linuxbrew/sbin \
+    && ln -sf /home/linuxbrew/.linuxbrew/Homebrew /root/.linuxbrew/Homebrew
 
 
 #  ██  ██      ███    ██ ██    ██ ███    ███
@@ -269,13 +288,14 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | ba
     && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" \
     && [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" \
     && echo 'export NVM_DIR="/home/${USER}/.nvm"' >> /home/${USER}/.bashrc \
-    && echo [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" \
-    && echo [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" \
+    && echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> /home/${USER}/.bashrc \
+    && echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"' >> /home/${USER}/.bashrc \
+    && echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/${USER}/.bashrc \
     && nvm install node \
     && nvm use node \
     && node -v \
     && npm -v \
-    && npm install -g npm dep-check npm-check newman snyk
+    && npm install -g @anthropic-ai/claude-code npm@latest dep-check npm-check newman snyk
 
 
 #  ██  ██      ██████  ██    ██ ████████ ██   ██  ██████  ███    ██
@@ -303,38 +323,49 @@ RUN apt-get -y update \
       tk-dev \
       uuid-dev \
       wget \
-      zlib1g-dev
+      zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get -y update \
     && apt-get install -y --no-install-recommends \
       python3.11-full \
       python3.12-full \
       python3.13-full \
+      python3.14-full \
       python3-pip \
       python3.11-venv \
       python3.12-venv \
-      python3.13-venv
+      python3.13-venv \
+      python3.14-venv \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get install -y --no-install-recommends \
+    && python3.14 --version \
     && python3.13 --version \
     && python3.12 --version \
     && python3.11 --version \
+    && which python3.14 \
     && which python3.13 \
     && which python3.12 \
-    && which python3.11
+    && which python3.11 \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get -y update \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 3 \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3.12 2 \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3.13 1 \
-    && sudo update-alternatives --set python /usr/bin/python3.13 \
-    && echo '#!/bin/bash\nsudo update-alternatives --set python "/usr/bin/python3.11"' > /usr/bin/set-python-11.sh \
-    && echo '#!/bin/bash\nsudo update-alternatives --set python "/usr/bin/python3.12"' > /usr/bin/set-python-12.sh \
-    && echo '#!/bin/bash\nsudo update-alternatives --set python "/usr/bin/python3.13"' > /usr/bin/set-python-13.sh \
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3.14 1 \
+    && update-alternatives --set python /usr/bin/python3.14 \
+    && printf '#!/bin/bash\nupdate-alternatives --set python "/usr/bin/python3.11"\n' > /usr/bin/set-python-11.sh \
+    && printf '#!/bin/bash\nupdate-alternatives --set python "/usr/bin/python3.12"\n' > /usr/bin/set-python-12.sh \
+    && printf '#!/bin/bash\nupdate-alternatives --set python "/usr/bin/python3.13"\n' > /usr/bin/set-python-13.sh \
+    && printf '#!/bin/bash\nupdate-alternatives --set python "/usr/bin/python3.14"\n' > /usr/bin/set-python-14.sh \
     && chmod +x /usr/bin/set-python-11.sh \
     && chmod +x /usr/bin/set-python-12.sh \
     && chmod +x /usr/bin/set-python-13.sh \
-    && python --version
+    && chmod +x /usr/bin/set-python-14.sh \
+    && python --version \
+    && rm -rf /var/lib/apt/lists/*
 
 
 #  ██  ██       ██████ ██       █████  ███    ███  █████  ██    ██
@@ -345,13 +376,14 @@ RUN apt-get -y update \
 
 # ClamAV configuration after clamav and clamav-daemon are installed
 # see https://https://aaronbrighton.medium.com/installation-configuration-of-clamav-antivirus-on-ubuntu-18-04-a6416bab3b41
-RUN apt-get install -y clamav clamav-daemon \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends clamav clamav-daemon \
     && echo "0 1 * * 0 root /usr/bin/clamdscan --fdpass --log /var/log/clamav/clamav.log --move=/root/quartine /" | tee /etc/cron.d/clamav-scan \
     && printf "ExcludePath ^/proc\nExcludePath ^/sys\nExcludePath ^/snap\nExcludePath ^/dev\nExcludePath ^/run\nExcludePath ^/var/lib/lxcfs/cgroup\nExcludePath ^/root/quarantine\nExcludePath ^/var/lib/docker\n" >> /etc/clamav/clamd.conf \
     && echo "fs.inotify.max_user_watches = 524288" >> /etc/sysctl.conf \
-    && sudo mkdir -p /var/clamav/tmp \
-    && sudo chown clamav:root /var/clamav/tmp \
-    && sudo chmod 770 /var/clamav/tmp \
+    && mkdir -p /var/clamav/tmp \
+    && chown clamav:root /var/clamav/tmp \
+    && chmod 770 /var/clamav/tmp \
     && echo "# /etc/systemd/system/clamonacc.service" >> /etc/systemd/system/clamonacc.service \
     && echo "[Unit]" >> /etc/systemd/system/clamonacc.service \
     && echo "Description=ClamAV On Access Scanner" >> /etc/systemd/system/clamonacc.service \
@@ -365,7 +397,8 @@ RUN apt-get install -y clamav clamav-daemon \
     && echo "ExecStart=/usr/bin/clamonacc -F --config-file=/etc/clamav/clamd.conf --log=/var/log/clamav/clamonacc.log --move=/root/quarantine" >> /etc/systemd/system/clamonacc.service \
     && echo "" >> /etc/systemd/system/clamonacc.service \
     && echo "[Install]" >> /etc/systemd/system/clamonacc.service \
-    && echo "WantedBy=multi-user.target" >> /etc/systemd/system/clamonacc.service
+    && echo "WantedBy=multi-user.target" >> /etc/systemd/system/clamonacc.service \
+    && rm -rf /var/lib/apt/lists/*
 
 
 #  ██  ██       ██████   ██████  ██████  ██████  ███████ ██     ██
@@ -384,69 +417,6 @@ RUN curl -sLk https://git.io/gobrew | bash  # Install gobrew
 RUN .gobrew/bin/gobrew use latest \
     && .gobrew/bin/gobrew install latest \
     && go install github.com/codesenberg/bombardier@latest
-
-
-#  ██  ██      ██████   ██████   ██████ ██   ██ ███████ ██████
-# ████████     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
-#  ██  ██      ██   ██ ██    ██ ██      █████   █████   ██████
-# ████████     ██   ██ ██    ██ ██      ██  ██  ██      ██   ██
-#  ██  ██      ██████   ██████   ██████ ██   ██ ███████ ██   ██
-
-# WORKDIR /home/root
-# USER root
-
-# # Install Docker tooling within WSL2 instead of using Docker-Desktop
-# # Adds docker apt key
-# RUN mkdir -p /etc/apt/keyrings \
-#     && mkdir -p /root/.docker \
-#     && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
-#     # Adds docker apt repository
-#     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null \
-#     # Refreshes apt repos
-#     && apt-get update \
-#     # Installs Docker CE
-#     && apt-get install -y --no-install-recommends \
-#         containerd.io \
-#         docker-buildx-plugin \
-#         docker-ce \
-#         docker-ce-cli \
-#         docker-compose-plugin \
-#     # Finds the latest version
-#     && switch_version=$(curl -fsSL -o /dev/null -w "%{url_effective}" https://github.com/docker/compose-switch/releases/latest | xargs basename) \
-#     # # Downloads the binary
-#     && curl -fL -o /usr/local/bin/docker-compose "https://github.com/docker/compose-switch/releases/download/${switch_version}/docker-compose-linux-$(dpkg --print-architecture)" \
-#     # # Finds the latest version
-#     && wincred_version=$(curl -fsSL -o /dev/null -w "%{url_effective}" https://github.com/docker/docker-credential-helpers/releases/latest | xargs basename) \
-#     # # Downloads and extracts the .exe
-#     && curl -fL -o /usr/local/bin/docker-credential-wincred.exe "https://github.com/docker/docker-credential-helpers/releases/download/${wincred_version}/docker-credential-wincred-${wincred_version}.windows-$(dpkg --print-architecture).exe"\
-#     # # Assigns execution permission to it
-#     && chmod +x /usr/local/bin/docker-credential-wincred.exe \
-#     # # Assigns execution permission to it
-#     && chmod +x /usr/local/bin/docker-compose \
-#     && mkdir -p /home/${USER}/.docker \
-#     # && echo '{' >> /home/${USER}/.docker/config.json \
-#     # && echo '    "credsStore": "wincred.exe"' >> /home/${USER}/.docker/config.json \
-#     # && echo '}' >> /home/${USER}/.docker/config.json \
-#     && echo '{' >> /etc/docker/daemon.json \
-#     && echo '    "features": {' >> /etc/docker/daemon.json \
-#     && echo '        "buildkit": true' >> /etc/docker/daemon.json \
-#     && echo '    }' >> /etc/docker/daemon.json \
-#     && echo '}' >> /etc/docker/daemon.json \
-#     # Download the latest Minikube
-#     && curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
-#     # Make it executable
-#     && chmod +x ./minikube \
-#     # Move it to your user's executable PATH
-#     && mv ./minikube /usr/local/bin/ \
-#     # Set the driver version to Docker
-#     && minikube config set driver docker \
-#     # Download the latest Kubectl
-#     && curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"\
-#     # Make it executable
-#     && chmod +x ./kubectl \
-#     # Move it to your user's executable PATH
-#     && mv ./kubectl /usr/local/bin/ \
-#     && chmod +x ~/.docker
 
 
 #  ██  ██      ███    ██ ██    ██  ██████  ███████ ████████     ██████  ██████  ███████ ██████
@@ -547,7 +517,8 @@ RUN sh -c 'echo "deb http://archive.ubuntu.com/ubuntu jammy main universe" > /et
         x11-apps \
         yamllint \
         zlib1g \
-        zlib1g-dev
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 
 #  ██  ██           ██  █████  ██    ██  █████
@@ -561,7 +532,7 @@ USER root
 
 RUN apt-get update \
     && apt-get upgrade -y \
-    && apt-get install -y \
+    && apt-get install -y --no-install-recommends \
         openjdk-8-jdk \
         openjdk-11-jdk \
         openjdk-17-jdk \
@@ -571,14 +542,15 @@ RUN apt-get update \
     && update-alternatives --install /usr/bin/java java /usr/lib/jvm/java-17-openjdk-amd64/bin/java 3 \
     && update-alternatives --install /usr/bin/java java /usr/lib/jvm/java-21-openjdk-amd64/bin/java 4 \
     && update-alternatives --set java "/usr/lib/jvm/java-21-openjdk-amd64/bin/java" \
-    && echo '#!/bin/bash\nsudo update-alternatives --set java "/usr/lib/jvm/java-8-openjdk-amd64/bin/java"' > /usr/bin/set-java-8.sh \
-    && echo '#!/bin/bash\nsudo update-alternatives --set java "/usr/lib/jvm/java-11-openjdk-amd64/bin/java"' > /usr/bin/set-java-11.sh \
-    && echo '#!/bin/bash\nsudo update-alternatives --set java "/usr/lib/jvm/java-17-openjdk-amd64/bin/java"' > /usr/bin/set-java-17.sh \
-    && echo '#!/bin/bash\nsudo update-alternatives --set java "/usr/lib/jvm/java-21-openjdk-amd64/bin/java"' > /usr/bin/set-java-21.sh \
+    && printf '#!/bin/bash\nupdate-alternatives --set java "/usr/lib/jvm/java-8-openjdk-amd64/bin/java"\n' > /usr/bin/set-java-8.sh \
+    && printf '#!/bin/bash\nupdate-alternatives --set java "/usr/lib/jvm/java-11-openjdk-amd64/bin/java"\n' > /usr/bin/set-java-11.sh \
+    && printf '#!/bin/bash\nupdate-alternatives --set java "/usr/lib/jvm/java-17-openjdk-amd64/bin/java"\n' > /usr/bin/set-java-17.sh \
+    && printf '#!/bin/bash\nupdate-alternatives --set java "/usr/lib/jvm/java-21-openjdk-amd64/bin/java"\n' > /usr/bin/set-java-21.sh \
     && chmod +x /usr/bin/set-java-8.sh \
     && chmod +x /usr/bin/set-java-11.sh \
     && chmod +x /usr/bin/set-java-17.sh \
-    && chmod +x /usr/bin/set-java-21.sh
+    && chmod +x /usr/bin/set-java-21.sh \
+    && rm -rf /var/lib/apt/lists/*
 
 
 #  ██  ██         ███    ██ ███████ ████████     ████████  ██████   ██████  ██      ███████
@@ -587,10 +559,10 @@ RUN apt-get update \
 # ████████        ██  ██ ██ ██         ██           ██    ██    ██ ██    ██ ██           ██
 #  ██  ██      ██ ██   ████ ███████    ██           ██     ██████   ██████  ███████ ███████
 
-WORKDIR /home/root
-USER root
+WORKDIR /home/${USER}
+USER ${USER}
 
-ENV PATH="/root/.dotnet/tools:$PATH"
+ENV PATH="/home/${USER}/.dotnet/tools:$PATH"
 
 RUN dotnet tool install -g coverlet.console \
     && dotnet tool install -g CycloneDX \
@@ -619,7 +591,12 @@ RUN dotnet tool install -g coverlet.console \
 WORKDIR /home/root
 USER root
 
-RUN echo 'alias k="kubectl"' >> /home/${USER}/.bashrc \
+RUN echo 'alias d="docker"\n' >> /home/${USER}/.bashrc \
+    && echo 'alias dc="docker-compose"\n' >> /home/${USER}/.bashrc \
+    && echo 'alias k="kubectl"' >> /home/${USER}/.bashrc \
+    && echo 'alias p="podman"' >> /home/${USER}/.bashrc \
+    && echo 'alias pc="podman compose"' >> /home/${USER}/.bashrc \
+    && echo 'alias podman-compose="podman compose"' >> /home/${USER}/.bashrc \
     && echo 'alias tf="tofu"\n' >> /home/${USER}/.bashrc \
     && echo 'eval $(ssh-agent)' >> /home/${USER}/.bashrc \
     && echo 'export BROWSER=wslview' >> /home/${USER}/.bashrc
@@ -635,7 +612,7 @@ WORKDIR /home/root
 USER root
 
 RUN chown -R ${USER}:${GROUP} /home/linuxbrew \
-    && eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv) \
+    && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
     && test -d /home/linuxbrew/.linuxbrew
 
 WORKDIR /home/${USER}
@@ -643,13 +620,14 @@ USER ${USER}
 
 ARG BUILD_DATE $BUILD_DATE
 
-RUN export PATH="${PATH}" \
+RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
     && brew tap spring-io/tap \
     && brew tap tofuutils/tap \
     && brew install act \
     && brew install bash-git-prompt \
     && brew install bfg \
     && brew install btop \
+    && brew install cloc \
     && brew install container-structure-test \
     && brew install copa \
     && brew install cosign \
@@ -703,14 +681,48 @@ USER ${USER}
 
 # Install Flyway
 RUN FLYWAY_REPO="https://github.com/flyway/flyway" \
-    && export LATEST_VERSION=$(curl -s https://api.github.com/repos/flyway/flyway/releases/latest | jq -r '.tag_name') \
+    && LATEST_VERSION=$(curl -s https://api.github.com/repos/flyway/flyway/releases/latest | jq -r '.tag_name') \
+    && export LATEST_VERSION \
     && FLYWAY_VERSION=${LATEST_VERSION##*-} \
     && echo "Flyway version is $FLYWAY_VERSION." \
-    && wget https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz -O flyway.tar.gz | file flyway.tar.gz \
+    && wget -q --progress=dot:giga "https://github.com/flyway/flyway/releases/download/flyway-${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" -O flyway.tar.gz \
+    && file flyway.tar.gz \
     && tar -xvzf flyway.tar.gz \
-    && sudo ln -s $(pwd)/flyway-${FLYWAY_VERSION}/flyway /usr/local/bin/flyway \
-    && rm flyway.tar.gz \
+    && rm flyway.tar.gz
+
+# Create symlink as root
+USER root
+RUN ln -s "/home/${USER}/flyway-$(curl -s https://api.github.com/repos/flyway/flyway/releases/latest | jq -r '.tag_name' | sed 's/flyway-//')/flyway" /usr/local/bin/flyway \
     && flyway -v
+
+USER ${USER}
+
+#  ██  ██      ██      ██  ██████  ██    ██ ██ ██████   █████  ███████ ███████
+# ████████     ██      ██ ██    ██ ██    ██ ██ ██   ██ ██   ██ ██      ██
+#  ██  ██      ██      ██ ██    ██ ██    ██ ██ ██████  ███████ ███████ █████
+# ████████     ██      ██ ██ ▄▄ ██ ██    ██ ██ ██   ██ ██   ██      ██ ██
+#  ██  ██      ███████ ██  ██████   ██████  ██ ██████  ██   ██ ███████ ███████
+#                             ▀▀
+
+# Install Liquibase
+RUN LIQUIBASE_REPO="https://github.com/liquibase/liquibase" \
+    && LATEST_VERSION=$(curl -s https://api.github.com/repos/liquibase/liquibase/releases/latest | jq -r '.tag_name') \
+    && export LATEST_VERSION \
+    && LIQUIBASE_VERSION=${LATEST_VERSION#v} \
+    && echo "Liquibase version is $LIQUIBASE_VERSION." \
+    && wget -q --progress=dot:giga "https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.tar.gz" -O liquibase.tar.gz \
+    && file liquibase.tar.gz \
+    && mkdir -p liquibase \
+    && tar -xzf liquibase.tar.gz -C liquibase \
+    && chmod +x liquibase/liquibase \
+    && rm liquibase.tar.gz
+
+# Create symlink as root
+USER root
+RUN ln -s "/home/${USER}/liquibase/liquibase" /usr/local/bin/liquibase \
+    && liquibase --version
+
+USER ${USER}
 
 
 #  ██  ██       ██████  ██████  ██████  ███████  ██████  ██
@@ -725,10 +737,11 @@ WORKDIR /home/root
 
 RUN CODEQL_REPO="https://github.com/github/codeql-action" \
     && DOWNLOAD_DIR="/home/${USER}" \
-    && export LATEST_VERSION=$(curl -sL https://api.github.com/repos/github/codeql-action/releases/latest | jq -r '.tag_name') \
+    && LATEST_VERSION=$(curl -sL https://api.github.com/repos/github/codeql-action/releases/latest | jq -r '.tag_name') \
+    && export LATEST_VERSION \
     && CODEQL_VERSION=${LATEST_VERSION##*-} \
     && echo "CodeQL version is $CODEQL_VERSION." \
-    && curl -sL https://github.com/github/codeql-action/releases/download/codeql-bundle-${CODEQL_VERSION}/codeql-bundle-linux64.tar.gz -o codeql-bundle-linux64.tar.gz \
+    && curl -sL "https://github.com/github/codeql-action/releases/download/codeql-bundle-${CODEQL_VERSION}/codeql-bundle-linux64.tar.gz" -o codeql-bundle-linux64.tar.gz \
     && tar -xvf codeql-bundle-linux64.tar.gz \
     && mv codeql /usr/local/bin/codeql \
     && ln -s /usr/local/bin/codeql/codeql /usr/bin/codeql \
@@ -760,11 +773,13 @@ RUN mkdir -p /etc/systemd/system/user@1001.service.d \
 WORKDIR /home/${USER}
 USER ${USER}
 
-RUN python -m pip install --upgrade --break-system-packages pip \
-    && python -m pip install --break-system-packages \
+RUN python -m pip install --no-cache-dir --upgrade --break-system-packages pip \
+    && python -m pip install --no-cache-dir --break-system-packages \
       checkov \
       detect-secrets \
-      pre-commit
+      podman-compose \
+      pre-commit \
+      uv
 
 
 #  ██  ██      ███████ ██ ███    ██  █████  ██          ███████ ███████ ████████ ██    ██ ██████
@@ -778,14 +793,15 @@ WORKDIR /home/root
 
 RUN apt-get -y update \
     && apt-get -y upgrade \
-    && echo "export PATH=\"${PATH}\"\n" >> /home/${USER}/.bashrc \
+    && printf 'export PATH="%s"\n' "${PATH}" >> /home/${USER}/.bashrc \
     # Needed for Podman shared mount warning
-    && echo "/   /   ext4   defaults,shared   0   1" >> /etc/fstab
+    && echo "/   /   ext4   defaults,shared   0   1" >> /etc/fstab \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN echo "if [ -f "/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share/gitprompt.sh" ]; then" >> /home/${USER}/.bashrc \
-    && echo "  __GIT_PROMPT_DIR="/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share"" >> /home/${USER}/.bashrc \
+RUN echo 'if [ -f "/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share/gitprompt.sh" ]; then' >> /home/${USER}/.bashrc \
+    && echo '  __GIT_PROMPT_DIR="/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share"' >> /home/${USER}/.bashrc \
     && echo "  GIT_PROMPT_ONLY_IN_REPO=1" >> /home/${USER}/.bashrc \
-    && echo "  source "/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share/gitprompt.sh"" >> /home/${USER}/.bashrc \
+    && echo '  source "/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share/gitprompt.sh"' >> /home/${USER}/.bashrc \
     && echo "fi" >> /home/${USER}/.bashrc
 
 # Fix user@.service
@@ -797,11 +813,11 @@ RUN mkdir -p /home/${USER}/.ssh \
     && echo "  IdentitiesOnly yes" >> /home/${USER}/.ssh/config \
     && echo "  HostkeyAlgorithms +ssh-rsa" >> /home/${USER}/.ssh/config \
     && echo "  PubkeyAcceptedKeyTypes=ssh-rsa" >> /home/${USER}/.ssh/config \
-    && sudo sh -c 'echo :WSLInterop:M::MZ::/init:PF > /usr/lib/binfmt.d/WSLInterop.conf' \
-    && sudo chown -R ${USER}:${GROUP} /home/${USER} \
-    && echo "\nexport PODMAN_IGNORE_CGROUPSV1_WARNING=1" >> /home/${USER}/.bashrc \
-    && echo "\nsudo mount --make-rshared /" >> /home/${USER}/.bashrc \
-    && echo "\nnvm use node" >> /home/${USER}/.bashrc \
+    && sh -c 'echo :WSLInterop:M::MZ::/init:PF > /usr/lib/binfmt.d/WSLInterop.conf' \
+    && chown -R ${USER}:${GROUP} /home/${USER} \
+    && printf '\nexport PODMAN_IGNORE_CGROUPSV1_WARNING=1\n' >> /home/${USER}/.bashrc \
+    && printf '\nmount --make-rshared /\n' >> /home/${USER}/.bashrc \
+    && printf '\nnvm use node\n' >> /home/${USER}/.bashrc \
     && mkdir -p /home/${USER}/.config/containers \
     && echo "[storage]" >> /home/${USER}/.config/containers/storage.conf \
     && echo "driver = \"overlay\"" >> /home/${USER}/.config/containers/storage.conf \

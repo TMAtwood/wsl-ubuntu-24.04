@@ -1,0 +1,14 @@
+# Markdownlint configuration
+# Allows HTML elements commonly used in GitHub README files
+
+# Allow inline HTML (for details/summary collapsible sections)
+MD033: false
+
+# Allow long lines (common in tables and links)
+MD013: false
+
+# Allow duplicate headings (common in multi-section docs)
+MD024: false
+
+# Allow raw URLs (sometimes preferred for visibility)
+MD034: false

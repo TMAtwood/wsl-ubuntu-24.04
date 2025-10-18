@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0  # Use the latest stable version
+    rev: v6.0.0  # Use the latest stable version
     hooks:
       - id: check-added-large-files
       - id: check-ast
@@ -31,13 +31,40 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.35.1  # Use the latest stable version
+    rev: v1.37.1  # Use the latest stable version
     hooks:
       - id: yamllint
         args: [--config-file=.yamllint.yaml]
         files: \.yaml$|\.yml$  # Apply only to YAML files
 
-  # - repo: https://github.com/petalmd/dockerfile-pre-commit
-  #   rev: 'v1.0'  # Use the revision rev you want to point at
-  #   hooks:
-  #     - id: dockerlint
+  - repo: https://github.com/petalmd/dockerfile-pre-commit
+    rev: 'v1.0'  # Use the revision rev you want to point at
+    hooks:
+      - id: dockerlint
+        args:
+          - --ignore
+          - DL3002  # Last USER should not be root (we need root for system operations)
+          - --ignore
+          - DL3005  # Do not use apt-get upgrade (needed for development environment)
+          - --ignore
+          - DL3008  # Pin versions in apt-get install (development env wants latest)
+          - --ignore
+          - DL3016  # Pin versions in npm install (development env wants latest)
+          - --ignore
+          - DL4001  # Either use Wget or Curl but not both (both are needed)
+          - --ignore
+          - SC1090  # Can't follow non-constant source (dynamic sourcing is intentional)
+          - --ignore
+          - SC1091  # Not following: File not included in mock (external files)
+          - --ignore
+          - SC1117  # Backslash is literal (false positives in printf/echo)
+          - --ignore
+          - SC2016  # Expressions don't expand in single quotes (intentional)
+          - --ignore
+          - SC2028  # echo won't expand escape sequences (we use printf where needed)
+          - --ignore
+          - SC2034  # Variable appears unused (used in command substitution)
+          - --ignore
+          - SC2086  # Double quote to prevent globbing (intentional in some cases)
+          - --ignore
+          - SC2230  # which is non-standard (compatibility reasons)
