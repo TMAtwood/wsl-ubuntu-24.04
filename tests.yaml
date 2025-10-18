@@ -31,16 +31,389 @@ containerRunOptions:
   #   - /etc/example/dir:/etc/dir
 
 commandTests:
+  # System checks
   - name: "apt-get upgrade"
     command: "apt-get"
     args: ["-qqs", "upgrade"]
     excludedOutput: [".*Inst.*Security.* | .*Security.*Inst.*"]
     excludedError: [".*Inst.*Security.* | .*Security.*Inst.*"]
-  - name: "brew installation"
-    command: "which"
-    args: ["brew"]
-    expectedOutput: ["/home/linuxbrew/.linuxbrew/bin/brew"]
+
+  # Version Control
   - name: "git installation"
-    command: "which"
-    args: ["git"]
-    expectedOutput: ["/usr/bin/git"]
+    command: "git"
+    args: ["--version"]
+    expectedOutput: ["git version"]
+  - name: "git-lfs installation"
+    command: "git-lfs"
+    args: ["--version"]
+    expectedOutput: ["git-lfs"]
+
+  # Package Managers & Build Tools
+  - name: "brew installation"
+    command: "bash"
+    args: ["-c", "eval \"$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\" && brew --version"]
+    expectedOutput: ["Homebrew"]
+  - name: "apt installation"
+    command: "apt"
+    args: ["--version"]
+    expectedOutput: ["apt"]
+  - name: "cargo installation"
+    command: "cargo"
+    args: ["--version"]
+    expectedOutput: ["cargo"]
+  - name: "make installation"
+    command: "make"
+    args: ["--version"]
+    expectedOutput: ["GNU Make"]
+
+  # Python & Tools
+  - name: "python installation"
+    command: "python"
+    args: ["--version"]
+    expectedOutput: ["Python 3"]
+  - name: "python3.14 installation"
+    command: "python3.14"
+    args: ["--version"]
+    expectedOutput: ["Python 3.14"]
+  - name: "python3.13 installation"
+    command: "python3.13"
+    args: ["--version"]
+    expectedOutput: ["Python 3.13"]
+  - name: "python3.12 installation"
+    command: "python3.12"
+    args: ["--version"]
+    expectedOutput: ["Python 3.12"]
+  - name: "python3.11 installation"
+    command: "python3.11"
+    args: ["--version"]
+    expectedOutput: ["Python 3.11"]
+  - name: "pip installation"
+    command: "pip"
+    args: ["--version"]
+    expectedOutput: ["pip"]
+  - name: "checkov installation"
+    command: "checkov"
+    args: ["--version"]
+    expectedOutput: [""]
+  - name: "detect-secrets installation"
+    command: "detect-secrets"
+    args: ["--version"]
+    expectedOutput: [""]
+  - name: "pre-commit installation"
+    command: "pre-commit"
+    args: ["--version"]
+    expectedOutput: ["pre-commit"]
+  - name: "uv installation"
+    command: "uv"
+    args: ["--version"]
+    expectedOutput: ["uv"]
+
+  # Node.js & NPM Tools
+  - name: "node installation"
+    command: "bash"
+    args: ["-c", "source ~/.nvm/nvm.sh && node --version"]
+    expectedOutput: ["v"]
+  - name: "npm installation"
+    command: "bash"
+    args: ["-c", "source ~/.nvm/nvm.sh && npm --version"]
+    expectedOutput: [""]
+  - name: "nvm installation"
+    command: "bash"
+    args: ["-c", "source ~/.nvm/nvm.sh && nvm --version"]
+    expectedOutput: [""]
+  - name: "newman installation"
+    command: "bash"
+    args: ["-c", "source ~/.nvm/nvm.sh && newman --version"]
+    expectedOutput: [""]
+  - name: "snyk installation"
+    command: "bash"
+    args: ["-c", "source ~/.nvm/nvm.sh && snyk --version"]
+    expectedOutput: [""]
+
+  # Go & Tools
+  - name: "go installation"
+    command: "go"
+    args: ["version"]
+    expectedOutput: ["go version"]
+  - name: "bombardier installation"
+    command: "bombardier"
+    args: ["--version"]
+    expectedOutput: [""]
+
+  # .NET & Tools
+  - name: "dotnet 8.0 installation"
+    command: "dotnet"
+    args: ["--list-sdks"]
+    expectedOutput: ["8.0"]
+  - name: "dotnet 9.0 installation"
+    command: "dotnet"
+    args: ["--list-sdks"]
+    expectedOutput: ["9.0"]
+  - name: "dotnet-coverage installation"
+    command: "dotnet-coverage"
+    args: ["--version"]
+    expectedOutput: [""]
+  - name: "dotnet-format installation"
+    command: "dotnet-format"
+    args: ["--version"]
+    expectedOutput: [""]
+  - name: "gitversion installation"
+    command: "dotnet"
+    args: ["gitversion", "version"]
+    expectedOutput: [""]
+  - name: "powershell installation"
+    command: "pwsh"
+    args: ["--version"]
+    expectedOutput: ["PowerShell"]
+
+  # Java
+  - name: "java 21 installation"
+    command: "java"
+    args: ["--version"]
+    expectedOutput: ["openjdk 21"]
+  - name: "maven installation"
+    command: "mvn"
+    args: ["--version"]
+    expectedOutput: ["Apache Maven"]
+
+  # Database Tools
+  - name: "flyway installation"
+    command: "flyway"
+    args: ["-v"]
+    expectedOutput: ["Flyway"]
+  - name: "liquibase installation"
+    command: "liquibase"
+    args: ["--version"]
+    expectedOutput: ["Liquibase"]
+
+  # Container & Kubernetes Tools
+  - name: "podman installation"
+    command: "podman"
+    args: ["--version"]
+    expectedOutput: ["podman version"]
+  - name: "buildah installation"
+    command: "buildah"
+    args: ["--version"]
+    expectedOutput: ["buildah version"]
+  - name: "helm installation"
+    command: "helm"
+    args: ["version"]
+    expectedOutput: ["version.BuildInfo"]
+  - name: "k9s installation"
+    command: "k9s"
+    args: ["version"]
+    expectedOutput: ["Version"]
+  - name: "kompose installation"
+    command: "kompose"
+    args: ["version"]
+    expectedOutput: [""]
+  - name: "kustomize installation"
+    command: "kustomize"
+    args: ["version"]
+    expectedOutput: [""]
+  - name: "dive installation"
+    command: "dive"
+    args: ["--version"]
+    expectedOutput: ["dive"]
+  - name: "lazydocker installation"
+    command: "lazydocker"
+    args: ["--version"]
+    expectedOutput: [""]
+  - name: "crane installation"
+    command: "crane"
+    args: ["version"]
+    expectedOutput: [""]
+  - name: "cosign installation"
+    command: "cosign"
+    args: ["version"]
+    expectedOutput: [""]
+  - name: "copa installation"
+    command: "copa"
+    args: ["--version"]
+    expectedOutput: [""]
+
+  # Security & Scanning Tools
+  - name: "trivy installation"
+    command: "trivy"
+    args: ["--version"]
+    expectedOutput: ["Version"]
+  - name: "grype installation"
+    command: "grype"
+    args: ["version"]
+    expectedOutput: ["Version"]
+  - name: "syft installation"
+    command: "syft"
+    args: ["version"]
+    expectedOutput: ["Version"]
+  - name: "kubescape installation"
+    command: "kubescape"
+    args: ["version"]
+    expectedOutput: [""]
+  - name: "osv-scanner installation"
+    command: "osv-scanner"
+    args: ["--version"]
+    expectedOutput: [""]
+  - name: "dependency-check installation"
+    command: "bash"
+    args: ["-c", "eval \"$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\" && dependency-check --version"]
+    expectedOutput: ["Dependency-Check"]
+  - name: "clamav installation"
+    command: "clamscan"
+    args: ["--version"]
+    expectedOutput: ["ClamAV"]
+
+  # Infrastructure as Code Tools
+  - name: "terraform installation via tenv"
+    command: "tenv"
+    args: ["tf", "list"]
+    expectedOutput: [""]
+  - name: "opentofu installation"
+    command: "tofu"
+    args: ["version"]
+    expectedOutput: ["OpenTofu"]
+  - name: "terraform-docs installation"
+    command: "terraform-docs"
+    args: ["--version"]
+    expectedOutput: ["terraform-docs"]
+  - name: "tflint installation"
+    command: "tflint"
+    args: ["--version"]
+    expectedOutput: ["TFLint"]
+  - name: "tfsec installation"
+    command: "tfsec"
+    args: ["--version"]
+    expectedOutput: [""]
+  - name: "terrascan installation"
+    command: "terrascan"
+    args: ["version"]
+    expectedOutput: ["version"]
+  - name: "tfupdate installation"
+    command: "tfupdate"
+    args: ["--version"]
+    expectedOutput: [""]
+  - name: "infracost installation"
+    command: "infracost"
+    args: ["--version"]
+    expectedOutput: ["Infracost"]
+  - name: "packer installation"
+    command: "packer"
+    args: ["version"]
+    expectedOutput: ["Packer"]
+  - name: "consul installation"
+    command: "consul"
+    args: ["version"]
+    expectedOutput: ["Consul"]
+
+  # Cloud CLI Tools
+  - name: "azure-cli installation"
+    command: "az"
+    args: ["version"]
+    expectedOutput: ["azure-cli"]
+  - name: "gh cli installation"
+    command: "gh"
+    args: ["--version"]
+    expectedOutput: ["gh version"]
+
+  # Code Quality & Testing Tools
+  - name: "hadolint installation"
+    command: "hadolint"
+    args: ["--version"]
+    expectedOutput: ["Haskell Dockerfile Linter"]
+  - name: "shellcheck installation"
+    command: "shellcheck"
+    args: ["--version"]
+    expectedOutput: ["ShellCheck"]
+  - name: "yamllint installation"
+    command: "yamllint"
+    args: ["--version"]
+    expectedOutput: ["yamllint"]
+  - name: "container-structure-test installation"
+    command: "container-structure-test"
+    args: ["version"]
+    expectedOutput: [""]
+  - name: "act installation"
+    command: "act"
+    args: ["--version"]
+    expectedOutput: ["act version"]
+
+  # Utilities
+  - name: "jq installation"
+    command: "jq"
+    args: ["--version"]
+    expectedOutput: ["jq"]
+  - name: "yq installation"
+    command: "yq"
+    args: ["--version"]
+    expectedOutput: [""]
+  - name: "wget installation"
+    command: "wget"
+    args: ["--version"]
+    expectedOutput: ["GNU Wget"]
+  - name: "curl installation"
+    command: "curl"
+    args: ["--version"]
+    expectedOutput: ["curl"]
+  - name: "tmux installation"
+    command: "tmux"
+    args: ["-V"]
+    expectedOutput: ["tmux"]
+  - name: "htop installation"
+    command: "htop"
+    args: ["--version"]
+    expectedOutput: ["htop"]
+  - name: "btop installation"
+    command: "btop"
+    args: ["--version"]
+    expectedOutput: ["btop"]
+  - name: "ncdu installation"
+    command: "ncdu"
+    args: ["--version"]
+    expectedOutput: ["ncdu"]
+  - name: "tldr installation"
+    command: "tldr"
+    args: ["--version"]
+    expectedOutput: [""]
+  - name: "mkcert installation"
+    command: "mkcert"
+    args: ["-version"]
+    expectedOutput: [""]
+
+  # Text Editors & IDEs
+  - name: "nano installation"
+    command: "nano"
+    args: ["--version"]
+    expectedOutput: ["GNU nano"]
+  - name: "vim installation"
+    command: "vim"
+    args: ["--version"]
+    expectedOutput: ["VIM"]
+
+  # Compression Tools
+  - name: "zip installation"
+    command: "zip"
+    args: ["--version"]
+    expectedOutput: ["Zip"]
+  - name: "unzip installation"
+    command: "unzip"
+    args: ["-v"]
+    expectedOutput: ["UnZip"]
+  - name: "7z installation"
+    command: "7z"
+    args: []
+    expectedOutput: ["7-Zip"]
+  - name: "tar installation"
+    command: "tar"
+    args: ["--version"]
+    expectedOutput: ["tar"]
+
+  # Systemd & Services
+  - name: "systemctl installation"
+    command: "systemctl"
+    args: ["--version"]
+    expectedOutput: ["systemd"]
+
+  # CodeQL
+  - name: "codeql installation"
+    command: "codeql"
+    args: ["--version"]
+    expectedOutput: [""]

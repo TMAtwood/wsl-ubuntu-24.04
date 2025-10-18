@@ -17,7 +17,7 @@ echo "Image name: $IMAGE_NAME"
 echo "Image name and version: $IMAGE_NAME_AND_VERSION"
 echo "Image name latest: $IMAGE_NAME_LATEST"
 
-podman build --platform linux/amd64 --build-arg BUILD_DATE="$BUILD_DATE" -t "${IMAGE_NAME_AND_VERSION}" .
+podman build --format docker --platform linux/amd64 --build-arg BUILD_DATE="$BUILD_DATE" -t "${IMAGE_NAME_AND_VERSION}" .
 
 podman tag "${IMAGE_NAME_AND_VERSION}" "${IMAGE_NAME_LATEST}"
 
