@@ -50,19 +50,24 @@ RUN apt-get -y update \
       ca-certificates \
       cargo \
       curl \
+      dbus-user-session \
       dkms \
       dpkg \
+      fuse-overlayfs \
       git \
       gnupg \
       gnupg2 \
+      iptables \
       jq \
       libffi-dev \
+      libpam-systemd \
       libplist-utils \
       libssl-dev \
       libxi-dev \
       libxmu-dev \
       lsb-release \
       make \
+      slirp4netns \
       software-properties-common \
       systemd \
       systemd-container \
@@ -90,14 +95,15 @@ RUN apt-get -y update \
 # ████████     ██      ██   ██ ██      ██   ██    ██    ██          ██    ██      ██ ██      ██   ██      ██
 #  ██  ██       ██████ ██   ██ ███████ ██   ██    ██    ███████      ██████  ███████ ███████ ██   ██ ███████
 
-RUN groupadd -r ${USER} \
+# Create dev user with explicit UID/GID and sudo access
+RUN groupadd -g 1001 ${USER} \
     && groupadd -r docker \
     && groupadd -r linuxbrew \
-    && useradd --create-home -g ${GROUP} -s /bin/bash ${USER} \
-    && echo "${USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
-    && echo "${USER}:${GROUP}" | chpasswd \
+    && useradd -m -u 1001 -g 1001 -s /bin/bash ${USER} \
+    && usermod -aG sudo ${USER} \
+    && echo "${USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-${USER}-nopasswd \
+    && chmod 0440 /etc/sudoers.d/90-${USER}-nopasswd \
     && adduser ${USER} adm \
-    && adduser ${USER} sudo \
     && useradd --create-home -g linuxbrew -s /bin/bash linuxbrew \
     && echo "linuxbrew ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
     && usermod -aG docker ${USER} \
@@ -148,38 +154,34 @@ RUN (apt-get remove -y 'dotnet*' 'aspnet*' 'netstandard*' || true) \
 #  ██  ██       ███ ███  ███████ ███████      ██████  ██████  ██   ████ ██      ██  ██████
 
 # See https://learn.microsoft.com/en-us/windows/wsl/wsl-config
-RUN echo "[automount]" > /etc/wsl.conf \
-    && echo "enable = true" >> /etc/wsl.conf \
-    && echo "root = /" >> /etc/wsl.conf \
-    && echo 'options = "metadata,uid=1000,gid=1000,umask=0022,fmask=11,case=on"' >> /etc/wsl.conf \
-    && echo "mountFsTab = true" >> /etc/wsl.conf \
-    && echo "crossDistro = true" >> /etc/wsl.conf \
-    && echo "" >> /etc/wsl.conf \
-    && echo "[boot]" > /etc/wsl.conf \
-    && echo "systemd = true" >> /etc/wsl.conf \
-    && echo "" >> /etc/wsl.conf \
-    && echo "[user]" >> /etc/wsl.conf \
-    && echo "default = dev" >> /etc/wsl.conf \
-    && echo "" >> /etc/wsl.conf \
-    && echo "[network]" >> /etc/wsl.conf \
-    && echo "generateHosts = true" >> /etc/wsl.conf \
-    && echo "generateResolvConf = false" >> /etc/wsl.conf \
-    && echo "" >> /etc/wsl.conf \
-    && echo "[filesystem]" >> /etc/wsl.conf \
-    && echo "umask = 0022" >> /etc/wsl.conf \
-    && echo "" >> /etc/wsl.conf \
-    && echo "[interop]" >> /etc/wsl.conf \
-    && echo "enabled = true" >> /etc/wsl.conf \
-    && echo "# The following line appends the windows %Path% at the end of the linux" >> /etc/wsl.conf \
-    && echo "# ubuntu \$PATH thus allowing executing windows exeutables like VSCode (code.exe)" >> /etc/wsl.conf \
-    && echo "# from the Ubuntu terminal" >> /etc/wsl.conf \
-    && echo "appendWindowsPath = false" >> /etc/wsl.conf \
-    && echo "" >> /etc/wsl.conf \
-    && echo "nameserver 1.1.1.1" >> /etc/resolv.conf.override \
+# WSL config: enable systemd, set default user, configure automount and network
+RUN tee /etc/wsl.conf >/dev/null <<'EOF'
+[boot]
+systemd=true
+
+[user]
+default=dev
+
+[automount]
+enabled=true
+options=metadata,umask=22,fmask=11
+mountFsTab=false
+
+[network]
+generateResolvConf=true
+
+[interop]
+appendWindowsPath=true
+EOF
+
+# Create custom resolv.conf override for DNS
+RUN echo "nameserver 1.1.1.1" > /etc/resolv.conf.override \
     && echo "nameserver 8.8.4.4" >> /etc/resolv.conf.override \
-    && echo "nameserver 8.8.8.8" >> /etc/resolv.conf.override \
-    && ln -s '/mnt/c/Program Files/Git/mingw64/bin/git-credential-manager.exe' /usr/bin/git-credential-manager \
-    && ln -s '/mnt/c/Program Files/Microsoft VS Code/code.exe' /usr/bin/code
+    && echo "nameserver 8.8.8.8" >> /etc/resolv.conf.override
+
+# Create symlinks to Windows tools (will work when WSL is running)
+RUN ln -s '/mnt/c/Program Files/Git/mingw64/bin/git-credential-manager.exe' /usr/bin/git-credential-manager || true \
+    && ln -s '/mnt/c/Program Files/Microsoft VS Code/code.exe' /usr/bin/code || true
 
 
 #  ██  ██       ██████  ██ ████████      ██████  ██████  ███    ██ ███████ ██  ██████
@@ -794,9 +796,26 @@ WORKDIR /home/root
 RUN apt-get -y update \
     && apt-get -y upgrade \
     && printf 'export PATH="%s"\n' "${PATH}" >> /home/${USER}/.bashrc \
-    # Needed for Podman shared mount warning
-    && echo "/   /   ext4   defaults,shared   0   1" >> /etc/fstab \
     && rm -rf /var/lib/apt/lists/*
+
+# Systemd (system instance) oneshot unit to make "/" recursively shared
+RUN tee /etc/systemd/system/make-root-shared.service >/dev/null <<'EOF'
+[Unit]
+Description=Make / a shared mount for rootless containers
+DefaultDependencies=no
+After=local-fs.target
+Before=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/mount --make-rshared /
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable the system unit (creates the wants/ symlink)
+RUN ln -s ../make-root-shared.service /etc/systemd/system/multi-user.target.wants/make-root-shared.service || true
 
 RUN echo 'if [ -f "/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share/gitprompt.sh" ]; then' >> /home/${USER}/.bashrc \
     && echo '  __GIT_PROMPT_DIR="/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share"' >> /home/${USER}/.bashrc \
@@ -804,8 +823,25 @@ RUN echo 'if [ -f "/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share/gitpromp
     && echo '  source "/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share/gitprompt.sh"' >> /home/${USER}/.bashrc \
     && echo "fi" >> /home/${USER}/.bashrc
 
-# Fix user@.service
-COPY user@.service /usr/lib/systemd/system/user@.service
+# Podman engine config: use systemd cgroups + journald events (per-user default via /etc/skel)
+RUN mkdir -p /etc/skel/.config/containers \
+ && tee /etc/skel/.config/containers/containers.conf >/dev/null <<'EOF'
+[engine]
+cgroup_manager = "systemd"
+events_logger = "journald"
+EOF
+
+# Give the current user the same containers.conf
+RUN mkdir -p /home/${USER}/.config/containers \
+ && cp /etc/skel/.config/containers/containers.conf /home/${USER}/.config/containers/containers.conf \
+ && chown -R ${USER}:${GROUP} /home/${USER}/.config
+
+# (Optional) Pre-enable podman.socket for all users' systemd --user via global wants
+# This avoids needing to run `systemctl --user enable podman.socket` on first login.
+# If your distro places the unit in /usr/lib/systemd/user, this symlink works for all users.
+RUN test -f /usr/lib/systemd/user/podman.socket && \
+    mkdir -p /etc/systemd/user/default.target.wants && \
+    ln -sf /usr/lib/systemd/user/podman.socket /etc/systemd/user/default.target.wants/podman.socket || true
 
 RUN mkdir -p /home/${USER}/.ssh \
     && echo "Host ssh.dev.azure.com" >> /home/${USER}/.ssh/config \
@@ -816,15 +852,22 @@ RUN mkdir -p /home/${USER}/.ssh \
     && sh -c 'echo :WSLInterop:M::MZ::/init:PF > /usr/lib/binfmt.d/WSLInterop.conf' \
     && chown -R ${USER}:${GROUP} /home/${USER} \
     && printf '\nexport PODMAN_IGNORE_CGROUPSV1_WARNING=1\n' >> /home/${USER}/.bashrc \
-    && printf '\nmount --make-rshared /\n' >> /home/${USER}/.bashrc \
     && printf '\nnvm use node\n' >> /home/${USER}/.bashrc \
-    && mkdir -p /home/${USER}/.config/containers \
-    && echo "[storage]" >> /home/${USER}/.config/containers/storage.conf \
-    && echo "driver = \"overlay\"" >> /home/${USER}/.config/containers/storage.conf \
-    && echo "runroot = \"/var/run/containers/storage\"" >> /etc/containers/storage.conf \
-    && echo "graphroot = \"/var/lib/containers/storage\"" >> /etc/containers/storage.conf \
-    && mkdir -p /run/user/1001/bus \
-    && chown -R ${USER}:${GROUP} /home/${USER}
+    && mkdir -p /run/user/1001 \
+    && chown -R ${USER}:${GROUP} /home/${USER} \
+    && chown ${USER}:${GROUP} /run/user/1001
+
+# Enable "linger" for the user without calling loginctl (works in images):
+# creating /var/lib/systemd/linger/<user> is equivalent to `loginctl enable-linger <user>`
+RUN mkdir -p /var/lib/systemd/linger && \
+    touch /var/lib/systemd/linger/${USER} && \
+    chmod 0644 /var/lib/systemd/linger/${USER}
+
+# Clean, ensure no bashrc has dangerous mount lines
+RUN sed -i '/make-rshared/d' /etc/skel/.bashrc || true \
+ && sed -i '/mount[[:space:]]\+\/[[:space:]]*$/d' /etc/skel/.bashrc || true \
+ && sed -i '/make-rshared/d' /home/${USER}/.bashrc || true \
+ && sed -i '/mount[[:space:]]\+\/[[:space:]]*$/d' /home/${USER}/.bashrc || true
 
 USER ${USER}
 WORKDIR /home/${USER}
