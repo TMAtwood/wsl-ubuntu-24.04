@@ -68,3 +68,7 @@ repos:
           - SC2086  # Double quote to prevent globbing (intentional in some cases)
           - --ignore
           - SC2230  # which is non-standard (compatibility reasons)
+          - --ignore
+          - DL3013  # Pin versions in pip (development env wants latest)
+          - --ignore
+          - DL3062  # Pin versions in go install (development env wants latest)

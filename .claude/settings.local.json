@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wsl -d wsl-ubuntu-24.04 -u dev bash -c \"ls -la /home/linuxbrew/.linuxbrew/ 2>&1\")",
+      "Bash(wsl -l -v)",
+      "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev bash -c \"ls -la /home/linuxbrew/.linuxbrew/\")",
+      "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev bash -c \"ls -la /home/linuxbrew/.linuxbrew/Homebrew/\")",
+      "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev bash -c \"ls -la /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/brew.sh\")",
+      "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev bash -c \"ls -la /home/linuxbrew/.linuxbrew/bin/brew\")",
+      "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev bash -c \"ls -la /home/linuxbrew/.linuxbrew/Homebrew/bin/brew\")",
+      "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev bash -c \"cat /home/linuxbrew/.linuxbrew/Homebrew/bin/brew | head -20\")",
+      "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev bash -c \"grep -n ''brew.sh'' /home/linuxbrew/.linuxbrew/Homebrew/bin/brew\")",
+      "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev bash -c \"grep -n ''HOMEBREW_LIBRARY='' /home/linuxbrew/.linuxbrew/Homebrew/bin/brew | head -5\")",
+      "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev bash -c \"grep -n ''HOMEBREW_REPOSITORY='' /home/linuxbrew/.linuxbrew/Homebrew/bin/brew | head -5\")",
+      "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev bash -c \"/home/linuxbrew/.linuxbrew/bin/brew --version 2>&1 | head -20\")",
+      "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev -- /home/linuxbrew/.linuxbrew/bin/brew --version)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

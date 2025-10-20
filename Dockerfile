@@ -50,19 +50,24 @@ RUN apt-get -y update \
       ca-certificates \
       cargo \
       curl \
+      dbus-user-session \
       dkms \
       dpkg \
+      fuse-overlayfs \
       git \
       gnupg \
       gnupg2 \
+      iptables \
       jq \
       libffi-dev \
+      libpam-systemd \
       libplist-utils \
       libssl-dev \
       libxi-dev \
       libxmu-dev \
       lsb-release \
       make \
+      slirp4netns \
       software-properties-common \
       systemd \
       systemd-container \
@@ -90,14 +95,15 @@ RUN apt-get -y update \
 # ████████     ██      ██   ██ ██      ██   ██    ██    ██          ██    ██      ██ ██      ██   ██      ██
 #  ██  ██       ██████ ██   ██ ███████ ██   ██    ██    ███████      ██████  ███████ ███████ ██   ██ ███████
 
-RUN groupadd -r ${USER} \
+# Create dev user with explicit UID/GID and sudo access
+RUN groupadd -g 1001 ${USER} \
     && groupadd -r docker \
     && groupadd -r linuxbrew \
-    && useradd --create-home -g ${GROUP} -s /bin/bash ${USER} \
-    && echo "${USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
-    && echo "${USER}:${GROUP}" | chpasswd \
+    && useradd -m -u 1001 -g 1001 -s /bin/bash ${USER} \
+    && usermod -aG sudo ${USER} \
+    && echo "${USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-${USER}-nopasswd \
+    && chmod 0440 /etc/sudoers.d/90-${USER}-nopasswd \
     && adduser ${USER} adm \
-    && adduser ${USER} sudo \
     && useradd --create-home -g linuxbrew -s /bin/bash linuxbrew \
     && echo "linuxbrew ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
     && usermod -aG docker ${USER} \
@@ -148,38 +154,34 @@ RUN (apt-get remove -y 'dotnet*' 'aspnet*' 'netstandard*' || true) \
 #  ██  ██       ███ ███  ███████ ███████      ██████  ██████  ██   ████ ██      ██  ██████
 
 # See https://learn.microsoft.com/en-us/windows/wsl/wsl-config
-RUN echo "[automount]" > /etc/wsl.conf \
-    && echo "enable = true" >> /etc/wsl.conf \
-    && echo "root = /" >> /etc/wsl.conf \
-    && echo 'options = "metadata,uid=1000,gid=1000,umask=0022,fmask=11,case=on"' >> /etc/wsl.conf \
-    && echo "mountFsTab = true" >> /etc/wsl.conf \
-    && echo "crossDistro = true" >> /etc/wsl.conf \
-    && echo "" >> /etc/wsl.conf \
-    && echo "[boot]" > /etc/wsl.conf \
-    && echo "systemd = true" >> /etc/wsl.conf \
-    && echo "" >> /etc/wsl.conf \
-    && echo "[user]" >> /etc/wsl.conf \
-    && echo "default = dev" >> /etc/wsl.conf \
-    && echo "" >> /etc/wsl.conf \
-    && echo "[network]" >> /etc/wsl.conf \
-    && echo "generateHosts = true" >> /etc/wsl.conf \
-    && echo "generateResolvConf = false" >> /etc/wsl.conf \
-    && echo "" >> /etc/wsl.conf \
-    && echo "[filesystem]" >> /etc/wsl.conf \
-    && echo "umask = 0022" >> /etc/wsl.conf \
-    && echo "" >> /etc/wsl.conf \
-    && echo "[interop]" >> /etc/wsl.conf \
-    && echo "enabled = true" >> /etc/wsl.conf \
-    && echo "# The following line appends the windows %Path% at the end of the linux" >> /etc/wsl.conf \
-    && echo "# ubuntu \$PATH thus allowing executing windows exeutables like VSCode (code.exe)" >> /etc/wsl.conf \
-    && echo "# from the Ubuntu terminal" >> /etc/wsl.conf \
-    && echo "appendWindowsPath = false" >> /etc/wsl.conf \
-    && echo "" >> /etc/wsl.conf \
-    && echo "nameserver 1.1.1.1" >> /etc/resolv.conf.override \
+# WSL config: enable systemd, set default user, configure automount and network
+RUN tee /etc/wsl.conf >/dev/null <<'EOF'
+[boot]
+systemd=true
+
+[user]
+default=dev
+
+[automount]
+enabled=true
+options=metadata,umask=22,fmask=11
+mountFsTab=false
+
+[network]
+generateResolvConf=true
+
+[interop]
+appendWindowsPath=true
+EOF
+
+# Create custom resolv.conf override for DNS
+RUN echo "nameserver 1.1.1.1" > /etc/resolv.conf.override \
     && echo "nameserver 8.8.4.4" >> /etc/resolv.conf.override \
-    && echo "nameserver 8.8.8.8" >> /etc/resolv.conf.override \
-    && ln -s '/mnt/c/Program Files/Git/mingw64/bin/git-credential-manager.exe' /usr/bin/git-credential-manager \
-    && ln -s '/mnt/c/Program Files/Microsoft VS Code/code.exe' /usr/bin/code
+    && echo "nameserver 8.8.8.8" >> /etc/resolv.conf.override
+
+# Create symlinks to Windows tools (will work when WSL is running)
+RUN ln -s '/mnt/c/Program Files/Git/mingw64/bin/git-credential-manager.exe' /usr/bin/git-credential-manager || true \
+    && ln -s '/mnt/c/Program Files/Microsoft VS Code/code.exe' /usr/bin/code || true
 
 
 #  ██  ██       ██████  ██ ████████      ██████  ██████  ███    ██ ███████ ██  ██████
@@ -202,7 +204,7 @@ RUN git config --global core.autocrlf false \
     && git config --global filter.lfs.required true \
     && git config --global filter.lfs.smudge 'git-lfs smudge -- %f' \
     && git config --global http.sslVerify true \
-    && git config --global safe.directory /home/linuxbrew/.linuxbrew/Homebrew
+    && git config --global safe.directory /home/linuxbrew/.linuxbrew
 
 WORKDIR /home/linuxbrew
 USER linuxbrew
@@ -218,7 +220,7 @@ RUN git config --global core.autocrlf false \
     && git config --global filter.lfs.required true \
     && git config --global filter.lfs.smudge 'git-lfs smudge -- %f' \
     && git config --global http.sslVerify true \
-    && git config --global safe.directory /home/linuxbrew/.linuxbrew/Homebrew
+    && git config --global safe.directory /home/linuxbrew/.linuxbrew
 
 WORKDIR /home/root
 USER root
@@ -234,7 +236,7 @@ RUN git config --global core.autocrlf false \
     && git config --global filter.lfs.required true \
     && git config --global filter.lfs.smudge 'git-lfs smudge -- %f' \
     && git config --global http.sslVerify true \
-    && git config --global safe.directory /home/linuxbrew/.linuxbrew/Homebrew
+    && git config --global safe.directory /home/linuxbrew/.linuxbrew
 
 
 #  ██  ██      ██████  ██████  ███████ ██     ██
@@ -248,9 +250,7 @@ USER linuxbrew
 
 ENV PATH="${PATH}:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin"
 
-RUN git clone https://github.com/Homebrew/brew /home/linuxbrew/.linuxbrew/Homebrew \
-    && mkdir -p /home/linuxbrew/.linuxbrew/bin \
-    && ln -s ../Homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/ \
+RUN git clone https://github.com/Homebrew/brew /home/linuxbrew/.linuxbrew \
     && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
     && brew --version \
     && brew doctor \
@@ -260,13 +260,11 @@ RUN git clone https://github.com/Homebrew/brew /home/linuxbrew/.linuxbrew/Homebr
 USER root
 RUN chown -R linuxbrew:linuxbrew /home/linuxbrew/.linuxbrew
 
-# Create symlinks so root can access brew
-RUN mkdir -p /usr/local/bin \
-    && ln -sf /home/linuxbrew/.linuxbrew/bin/brew /usr/local/bin/brew \
-    && mkdir -p /root/.linuxbrew \
-    && ln -sf /home/linuxbrew/.linuxbrew/bin /root/.linuxbrew/bin \
-    && ln -sf /home/linuxbrew/.linuxbrew/sbin /root/.linuxbrew/sbin \
-    && ln -sf /home/linuxbrew/.linuxbrew/Homebrew /root/.linuxbrew/Homebrew
+# Create /usr/local directories with proper permissions for Homebrew
+# Note: We do NOT create a brew symlink in /usr/local/bin to avoid HOMEBREW_PREFIX conflicts
+RUN mkdir -p /usr/local/bin /usr/local/etc /usr/local/include /usr/local/lib /usr/local/sbin /usr/local/share /usr/local/share/man /usr/local/share/man/man1 /usr/local/var /usr/local/Cellar /usr/local/Caskroom /usr/local/Frameworks /usr/local/opt \
+    && chown -R ${USER}:${GROUP} /usr/local \
+    && chmod -R u+w /usr/local
 
 
 #  ██  ██      ███    ██ ██    ██ ███    ███
@@ -461,6 +459,7 @@ RUN sh -c 'echo "deb http://archive.ubuntu.com/ubuntu jammy main universe" > /et
         daemonize \
         dbus \
         dbus-x11 \
+        dnsutils \
         dotnet-sdk-8.0 \
         dotnet-sdk-9.0 \
         entr \
@@ -478,6 +477,7 @@ RUN sh -c 'echo "deb http://archive.ubuntu.com/ubuntu jammy main universe" > /et
         imagemagick \
         intltool \
         iproute2 \
+        iptables \
         iputils-ping \
         kubescape \
         less \
@@ -499,6 +499,7 @@ RUN sh -c 'echo "deb http://archive.ubuntu.com/ubuntu jammy main universe" > /et
         p7zip-full \
         packer \
         pkg-config \
+        podman-docker \
         policykit-1 \
         powershell \
         protobuf-compiler \
@@ -620,28 +621,30 @@ USER ${USER}
 
 ARG BUILD_DATE $BUILD_DATE
 
+# Add Homebrew taps
 RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
     && brew tap spring-io/tap \
-    && brew tap tofuutils/tap \
+    && brew tap tofuutils/tap
+
+# Install development tools
+RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
     && brew install act \
     && brew install bash-git-prompt \
-    && brew install bfg \
     && brew install btop \
-    && brew install cloc \
+    && brew install gcc \
+    && brew install gh \
+    && brew install gitversion \
+    && brew install tldr
+
+# Install container tools
+RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
     && brew install container-structure-test \
     && brew install copa \
     && brew install cosign \
     && brew install crane \
-    && brew install dependency-check \
     && brew install dive \
-    && brew install gcc \
-    && brew install gh \
-    && brew install gitversion \
-    && brew install grype \
     && brew install hadolint \
     && brew install helm \
-    && brew install infracost \
-    && brew install linka-cloud/tap/d2vm \
     && brew install k9s \
     && brew install kompose \
     && brew install krew \
@@ -649,22 +652,37 @@ RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
     && brew install kustomize \
     && brew install lazydocker \
     && brew install mkcert \
+    && brew install podman
+
+# Install security scanning tools
+RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
+    && brew install dependency-check \
+    && brew install grype \
     && brew install osv-scanner \
-    && brew install podman \
-    && brew install spring-boot \
     && brew install syft \
+    && brew install trivy
+
+# Install infrastructure/terraform tools
+RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
+    && brew install infracost \
     && brew install tenv \
     && brew install terraform-docs \
     && brew install terraformer \
     && brew install terrascan \
     && brew install tflint \
     && brew install tfsec \
-    && brew install tfupdate \
-    && brew install tldr \
-    && brew install trivy \
+    && brew install tfupdate
+
+# Install specialized tools
+RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
+    && brew install linka-cloud/tap/d2vm \
+    && brew install spring-boot \
     && brew install uv \
     && brew install yamllint \
-    && brew install yq \
+    && brew install yq
+
+# Upgrade all brew packages and configure tenv
+RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
     && brew upgrade \
     && tenv opentofu install latest \
     && tenv opentofu use latest
@@ -773,8 +791,10 @@ RUN mkdir -p /etc/systemd/system/user@1001.service.d \
 WORKDIR /home/${USER}
 USER ${USER}
 
-RUN python -m pip install --no-cache-dir --upgrade --break-system-packages pip \
-    && python -m pip install --no-cache-dir --break-system-packages \
+# Install Python packages
+# Note: Not upgrading pip since it's managed by Debian package manager
+# Using --ignore-installed to avoid conflicts with system-installed packages like jsonschema
+RUN python -m pip install --no-cache-dir --break-system-packages --ignore-installed \
       checkov \
       detect-secrets \
       podman-compose \
@@ -794,9 +814,26 @@ WORKDIR /home/root
 RUN apt-get -y update \
     && apt-get -y upgrade \
     && printf 'export PATH="%s"\n' "${PATH}" >> /home/${USER}/.bashrc \
-    # Needed for Podman shared mount warning
-    && echo "/   /   ext4   defaults,shared   0   1" >> /etc/fstab \
     && rm -rf /var/lib/apt/lists/*
+
+# Systemd (system instance) oneshot unit to make "/" recursively shared
+RUN tee /etc/systemd/system/make-root-shared.service >/dev/null <<'EOF'
+[Unit]
+Description=Make / a shared mount for rootless containers
+DefaultDependencies=no
+After=local-fs.target
+Before=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/mount --make-rshared /
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable the system unit (creates the wants/ symlink)
+RUN ln -s ../make-root-shared.service /etc/systemd/system/multi-user.target.wants/make-root-shared.service || true
 
 RUN echo 'if [ -f "/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share/gitprompt.sh" ]; then' >> /home/${USER}/.bashrc \
     && echo '  __GIT_PROMPT_DIR="/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share"' >> /home/${USER}/.bashrc \
@@ -804,8 +841,27 @@ RUN echo 'if [ -f "/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share/gitpromp
     && echo '  source "/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share/gitprompt.sh"' >> /home/${USER}/.bashrc \
     && echo "fi" >> /home/${USER}/.bashrc
 
-# Fix user@.service
-COPY user@.service /usr/lib/systemd/system/user@.service
+# Podman engine config: use systemd cgroups + journald events (per-user default via /etc/skel)
+RUN mkdir -p /etc/skel/.config/containers \
+ && tee /etc/skel/.config/containers/containers.conf >/dev/null <<'EOF'
+[engine]
+cgroup_manager = "systemd"
+events_logger = "journald"
+EOF
+
+# Give the current user the same containers.conf
+RUN mkdir -p /home/${USER}/.config/containers \
+ && cp /etc/skel/.config/containers/containers.conf /home/${USER}/.config/containers/containers.conf \
+ && chown -R ${USER}:${GROUP} /home/${USER}/.config \
+ && mkdir -p /etc/containers \
+ && touch /etc/containers/nodocker
+
+# (Optional) Pre-enable podman.socket for all users' systemd --user via global wants
+# This avoids needing to run `systemctl --user enable podman.socket` on first login.
+# If your distro places the unit in /usr/lib/systemd/user, this symlink works for all users.
+RUN test -f /usr/lib/systemd/user/podman.socket && \
+    mkdir -p /etc/systemd/user/default.target.wants && \
+    ln -sf /usr/lib/systemd/user/podman.socket /etc/systemd/user/default.target.wants/podman.socket || true
 
 RUN mkdir -p /home/${USER}/.ssh \
     && echo "Host ssh.dev.azure.com" >> /home/${USER}/.ssh/config \
@@ -816,15 +872,59 @@ RUN mkdir -p /home/${USER}/.ssh \
     && sh -c 'echo :WSLInterop:M::MZ::/init:PF > /usr/lib/binfmt.d/WSLInterop.conf' \
     && chown -R ${USER}:${GROUP} /home/${USER} \
     && printf '\nexport PODMAN_IGNORE_CGROUPSV1_WARNING=1\n' >> /home/${USER}/.bashrc \
-    && printf '\nmount --make-rshared /\n' >> /home/${USER}/.bashrc \
     && printf '\nnvm use node\n' >> /home/${USER}/.bashrc \
-    && mkdir -p /home/${USER}/.config/containers \
-    && echo "[storage]" >> /home/${USER}/.config/containers/storage.conf \
-    && echo "driver = \"overlay\"" >> /home/${USER}/.config/containers/storage.conf \
-    && echo "runroot = \"/var/run/containers/storage\"" >> /etc/containers/storage.conf \
-    && echo "graphroot = \"/var/lib/containers/storage\"" >> /etc/containers/storage.conf \
-    && mkdir -p /run/user/1001/bus \
-    && chown -R ${USER}:${GROUP} /home/${USER}
+    && mkdir -p /run/user/1001 \
+    && chown -R ${USER}:${GROUP} /home/${USER} \
+    && chown ${USER}:${GROUP} /run/user/1001
+
+# Enable "linger" for the user without calling loginctl (works in images):
+# creating /var/lib/systemd/linger/<user> is equivalent to `loginctl enable-linger <user>`
+RUN mkdir -p /var/lib/systemd/linger && \
+    touch /var/lib/systemd/linger/${USER} && \
+    chmod 0644 /var/lib/systemd/linger/${USER}
+
+
+#  ██  ██      ██     ██ ███████ ██          ██    ██ ██████  ███    ██ ██   ██ ██ ████████
+# ████████     ██     ██ ██      ██          ██    ██ ██   ██ ████   ██ ██  ██  ██    ██
+#  ██  ██      ██  █  ██ ███████ ██          ██    ██ ██████  ██ ██  ██ █████   ██    ██
+# ████████     ██ ███ ██      ██ ██           ██  ██  ██      ██  ██ ██ ██  ██  ██    ██
+#  ██  ██       ███ ███  ███████ ███████       ████   ██      ██   ████ ██   ██ ██    ██
+
+# Install wsl-vpnkit to provide network connectivity when connected to VPNs on Windows host
+# See: https://github.com/sakai135/wsl-vpnkit
+WORKDIR /usr/local/wsl-vpnkit
+RUN wget -q https://github.com/containers/gvisor-tap-vsock/releases/download/v0.6.1/gvproxy-windows.exe \
+    && wget -q https://github.com/containers/gvisor-tap-vsock/releases/download/v0.6.1/vm \
+    && chmod +x ./gvproxy-windows.exe ./vm \
+    && mv ./vm ./wsl-vm \
+    && mv ./gvproxy-windows.exe ./wsl-gvproxy.exe
+
+# Download wsl-vpnkit script
+RUN wget -q https://raw.githubusercontent.com/sakai135/wsl-vpnkit/v0.4.1/wsl-vpnkit -O /usr/local/wsl-vpnkit/wsl-vpnkit \
+    && chmod +x /usr/local/wsl-vpnkit/wsl-vpnkit \
+    && ln -s /usr/local/wsl-vpnkit/wsl-vpnkit /usr/local/bin/wsl-vpnkit
+
+# Create systemd service for wsl-vpnkit
+RUN printf '[Unit]\n' > /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'Description=wsl-vpnkit - WSL VPN network connectivity\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'After=network.target\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf '\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf '[Service]\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'ExecStart=/usr/local/wsl-vpnkit/wsl-vpnkit\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'Environment="VMEXEC_PATH=/usr/local/wsl-vpnkit/wsl-vm"\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'Environment="GVPROXY_PATH=/usr/local/wsl-vpnkit/wsl-gvproxy.exe"\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'Restart=always\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'KillMode=mixed\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf '\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf '[Install]\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'WantedBy=multi-user.target\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && systemctl enable wsl-vpnkit.service
+
+# Clean, ensure no bashrc has dangerous mount lines
+RUN sed -i '/make-rshared/d' /etc/skel/.bashrc || true \
+ && sed -i '/mount[[:space:]]\+\/[[:space:]]*$/d' /etc/skel/.bashrc || true \
+ && sed -i '/make-rshared/d' /home/${USER}/.bashrc || true \
+ && sed -i '/mount[[:space:]]\+\/[[:space:]]*$/d' /home/${USER}/.bashrc || true
 
 USER ${USER}
 WORKDIR /home/${USER}

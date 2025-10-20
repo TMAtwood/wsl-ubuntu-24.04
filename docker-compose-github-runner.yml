@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  github-runner:
+    image: myoung34/github-runner:latest
+    container_name: github-runner-wsl-ubuntu
+    environment:
+      # Get your token from: https://github.com/TMAtwood/wsl-ubuntu-24.04/settings/actions/runners/new
+      REPO_URL: https://github.com/TMAtwood/wsl-ubuntu-24.04
+      # RUNNER_TOKEN will be provided when you register the runner
+      # Option 1: Use Personal Access Token (recommended for long-term)
+      ACCESS_TOKEN: ${GITHUB_PAT}
+      # Option 2: Use registration token (expires in 1 hour)
+      # RUNNER_TOKEN: ${GITHUB_RUNNER_TOKEN}
+
+      RUNNER_NAME: synology-nas-runner
+      RUNNER_WORKDIR: /tmp/runner/work
+      RUNNER_GROUP: default
+      LABELS: synology,docker,self-hosted
+
+      # Docker-in-Docker support (required for building containers)
+      DOCKER_ENABLED: true
+      DOCKER_HOST: unix:///var/run/docker.sock
+
+      # Optional: Set ephemeral mode (runner is removed after each job)
+      # EPHEMERAL: true
+
+    volumes:
+      # Mount Docker socket for Docker-in-Docker
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persistent work directory
+      - /volume1/docker/github-runner/work:/tmp/runner/work
+      # Optional: Cache for faster builds
+      - /volume1/docker/github-runner/cache:/tmp/runner/cache
+
+    # Use host network for better performance (optional)
+    # network_mode: host
+
+    restart: unless-stopped
+
+    # Resource limits (adjust based on your NAS)
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 8G
+        reservations:
+          cpus: "2.0"
+          memory: 4G
+
+    privileged: true
+
+    security_opt:
+      - apparmor:unconfined
+      - seccomp:unconfined
