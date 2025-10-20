@@ -446,6 +446,43 @@ Both `root` and `dev` users can access Homebrew:
 
 ## 🐛 Troubleshooting
 
+### VPN Network Connectivity
+
+This image includes **wsl-vpnkit** for maintaining network connectivity when connected to VPNs on your Windows host.
+
+**What is wsl-vpnkit?**
+
+- Automatically provides network connectivity to WSL2 when blocked by VPN
+- Uses gvisor-tap-vsock for transparent network bridging
+- Runs as a systemd service (starts automatically)
+- No Windows host configuration required
+
+**Usage:**
+
+```bash
+# Check status
+systemctl status wsl-vpnkit
+
+# View logs
+journalctl -u wsl-vpnkit -f
+
+# Restart if needed
+sudo systemctl restart wsl-vpnkit
+```
+
+**Troubleshooting VPN connectivity:**
+
+If you experience network issues while connected to a VPN:
+
+1. The service should start automatically with WSL
+2. Check service status: `systemctl status wsl-vpnkit`
+3. Test connectivity: `ping 8.8.8.8`
+4. For debugging: `sudo DEBUG=1 /usr/local/bin/wsl-vpnkit`
+
+For more information, see [sakai135/wsl-vpnkit](https://github.com/sakai135/wsl-vpnkit).
+
+---
+
 ### Common Issues
 
 <details>

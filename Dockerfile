@@ -204,7 +204,7 @@ RUN git config --global core.autocrlf false \
     && git config --global filter.lfs.required true \
     && git config --global filter.lfs.smudge 'git-lfs smudge -- %f' \
     && git config --global http.sslVerify true \
-    && git config --global safe.directory /home/linuxbrew/.linuxbrew/Homebrew
+    && git config --global safe.directory /home/linuxbrew/.linuxbrew
 
 WORKDIR /home/linuxbrew
 USER linuxbrew
@@ -220,7 +220,7 @@ RUN git config --global core.autocrlf false \
     && git config --global filter.lfs.required true \
     && git config --global filter.lfs.smudge 'git-lfs smudge -- %f' \
     && git config --global http.sslVerify true \
-    && git config --global safe.directory /home/linuxbrew/.linuxbrew/Homebrew
+    && git config --global safe.directory /home/linuxbrew/.linuxbrew
 
 WORKDIR /home/root
 USER root
@@ -236,7 +236,7 @@ RUN git config --global core.autocrlf false \
     && git config --global filter.lfs.required true \
     && git config --global filter.lfs.smudge 'git-lfs smudge -- %f' \
     && git config --global http.sslVerify true \
-    && git config --global safe.directory /home/linuxbrew/.linuxbrew/Homebrew
+    && git config --global safe.directory /home/linuxbrew/.linuxbrew
 
 
 #  ██  ██      ██████  ██████  ███████ ██     ██
@@ -250,9 +250,7 @@ USER linuxbrew
 
 ENV PATH="${PATH}:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin"
 
-RUN git clone https://github.com/Homebrew/brew /home/linuxbrew/.linuxbrew/Homebrew \
-    && mkdir -p /home/linuxbrew/.linuxbrew/bin \
-    && ln -s ../Homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/ \
+RUN git clone https://github.com/Homebrew/brew /home/linuxbrew/.linuxbrew \
     && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
     && brew --version \
     && brew doctor \
@@ -262,13 +260,11 @@ RUN git clone https://github.com/Homebrew/brew /home/linuxbrew/.linuxbrew/Homebr
 USER root
 RUN chown -R linuxbrew:linuxbrew /home/linuxbrew/.linuxbrew
 
-# Create symlinks so root can access brew
-RUN mkdir -p /usr/local/bin \
-    && ln -sf /home/linuxbrew/.linuxbrew/bin/brew /usr/local/bin/brew \
-    && mkdir -p /root/.linuxbrew \
-    && ln -sf /home/linuxbrew/.linuxbrew/bin /root/.linuxbrew/bin \
-    && ln -sf /home/linuxbrew/.linuxbrew/sbin /root/.linuxbrew/sbin \
-    && ln -sf /home/linuxbrew/.linuxbrew/Homebrew /root/.linuxbrew/Homebrew
+# Create /usr/local directories with proper permissions for Homebrew
+# Note: We do NOT create a brew symlink in /usr/local/bin to avoid HOMEBREW_PREFIX conflicts
+RUN mkdir -p /usr/local/bin /usr/local/etc /usr/local/include /usr/local/lib /usr/local/sbin /usr/local/share /usr/local/share/man /usr/local/share/man/man1 /usr/local/var /usr/local/Cellar /usr/local/Caskroom /usr/local/Frameworks /usr/local/opt \
+    && chown -R ${USER}:${GROUP} /usr/local \
+    && chmod -R u+w /usr/local
 
 
 #  ██  ██      ███    ██ ██    ██ ███    ███
@@ -463,6 +459,7 @@ RUN sh -c 'echo "deb http://archive.ubuntu.com/ubuntu jammy main universe" > /et
         daemonize \
         dbus \
         dbus-x11 \
+        dnsutils \
         dotnet-sdk-8.0 \
         dotnet-sdk-9.0 \
         entr \
@@ -480,6 +477,7 @@ RUN sh -c 'echo "deb http://archive.ubuntu.com/ubuntu jammy main universe" > /et
         imagemagick \
         intltool \
         iproute2 \
+        iptables \
         iputils-ping \
         kubescape \
         less \
@@ -501,6 +499,7 @@ RUN sh -c 'echo "deb http://archive.ubuntu.com/ubuntu jammy main universe" > /et
         p7zip-full \
         packer \
         pkg-config \
+        podman-docker \
         policykit-1 \
         powershell \
         protobuf-compiler \
@@ -622,28 +621,30 @@ USER ${USER}
 
 ARG BUILD_DATE $BUILD_DATE
 
+# Add Homebrew taps
 RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
     && brew tap spring-io/tap \
-    && brew tap tofuutils/tap \
+    && brew tap tofuutils/tap
+
+# Install development tools
+RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
     && brew install act \
     && brew install bash-git-prompt \
-    && brew install bfg \
     && brew install btop \
-    && brew install cloc \
+    && brew install gcc \
+    && brew install gh \
+    && brew install gitversion \
+    && brew install tldr
+
+# Install container tools
+RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
     && brew install container-structure-test \
     && brew install copa \
     && brew install cosign \
     && brew install crane \
-    && brew install dependency-check \
     && brew install dive \
-    && brew install gcc \
-    && brew install gh \
-    && brew install gitversion \
-    && brew install grype \
     && brew install hadolint \
     && brew install helm \
-    && brew install infracost \
-    && brew install linka-cloud/tap/d2vm \
     && brew install k9s \
     && brew install kompose \
     && brew install krew \
@@ -651,22 +652,37 @@ RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
     && brew install kustomize \
     && brew install lazydocker \
     && brew install mkcert \
+    && brew install podman
+
+# Install security scanning tools
+RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
+    && brew install dependency-check \
+    && brew install grype \
     && brew install osv-scanner \
-    && brew install podman \
-    && brew install spring-boot \
     && brew install syft \
+    && brew install trivy
+
+# Install infrastructure/terraform tools
+RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
+    && brew install infracost \
     && brew install tenv \
     && brew install terraform-docs \
     && brew install terraformer \
     && brew install terrascan \
     && brew install tflint \
     && brew install tfsec \
-    && brew install tfupdate \
-    && brew install tldr \
-    && brew install trivy \
+    && brew install tfupdate
+
+# Install specialized tools
+RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
+    && brew install linka-cloud/tap/d2vm \
+    && brew install spring-boot \
     && brew install uv \
     && brew install yamllint \
-    && brew install yq \
+    && brew install yq
+
+# Upgrade all brew packages and configure tenv
+RUN eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
     && brew upgrade \
     && tenv opentofu install latest \
     && tenv opentofu use latest
@@ -775,8 +791,10 @@ RUN mkdir -p /etc/systemd/system/user@1001.service.d \
 WORKDIR /home/${USER}
 USER ${USER}
 
-RUN python -m pip install --no-cache-dir --upgrade --break-system-packages pip \
-    && python -m pip install --no-cache-dir --break-system-packages \
+# Install Python packages
+# Note: Not upgrading pip since it's managed by Debian package manager
+# Using --ignore-installed to avoid conflicts with system-installed packages like jsonschema
+RUN python -m pip install --no-cache-dir --break-system-packages --ignore-installed \
       checkov \
       detect-secrets \
       podman-compose \
@@ -834,7 +852,9 @@ EOF
 # Give the current user the same containers.conf
 RUN mkdir -p /home/${USER}/.config/containers \
  && cp /etc/skel/.config/containers/containers.conf /home/${USER}/.config/containers/containers.conf \
- && chown -R ${USER}:${GROUP} /home/${USER}/.config
+ && chown -R ${USER}:${GROUP} /home/${USER}/.config \
+ && mkdir -p /etc/containers \
+ && touch /etc/containers/nodocker
 
 # (Optional) Pre-enable podman.socket for all users' systemd --user via global wants
 # This avoids needing to run `systemctl --user enable podman.socket` on first login.
@@ -862,6 +882,43 @@ RUN mkdir -p /home/${USER}/.ssh \
 RUN mkdir -p /var/lib/systemd/linger && \
     touch /var/lib/systemd/linger/${USER} && \
     chmod 0644 /var/lib/systemd/linger/${USER}
+
+
+#  ██  ██      ██     ██ ███████ ██          ██    ██ ██████  ███    ██ ██   ██ ██ ████████
+# ████████     ██     ██ ██      ██          ██    ██ ██   ██ ████   ██ ██  ██  ██    ██
+#  ██  ██      ██  █  ██ ███████ ██          ██    ██ ██████  ██ ██  ██ █████   ██    ██
+# ████████     ██ ███ ██      ██ ██           ██  ██  ██      ██  ██ ██ ██  ██  ██    ██
+#  ██  ██       ███ ███  ███████ ███████       ████   ██      ██   ████ ██   ██ ██    ██
+
+# Install wsl-vpnkit to provide network connectivity when connected to VPNs on Windows host
+# See: https://github.com/sakai135/wsl-vpnkit
+WORKDIR /usr/local/wsl-vpnkit
+RUN wget -q https://github.com/containers/gvisor-tap-vsock/releases/download/v0.6.1/gvproxy-windows.exe \
+    && wget -q https://github.com/containers/gvisor-tap-vsock/releases/download/v0.6.1/vm \
+    && chmod +x ./gvproxy-windows.exe ./vm \
+    && mv ./vm ./wsl-vm \
+    && mv ./gvproxy-windows.exe ./wsl-gvproxy.exe
+
+# Download wsl-vpnkit script
+RUN wget -q https://raw.githubusercontent.com/sakai135/wsl-vpnkit/v0.4.1/wsl-vpnkit -O /usr/local/wsl-vpnkit/wsl-vpnkit \
+    && chmod +x /usr/local/wsl-vpnkit/wsl-vpnkit \
+    && ln -s /usr/local/wsl-vpnkit/wsl-vpnkit /usr/local/bin/wsl-vpnkit
+
+# Create systemd service for wsl-vpnkit
+RUN printf '[Unit]\n' > /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'Description=wsl-vpnkit - WSL VPN network connectivity\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'After=network.target\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf '\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf '[Service]\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'ExecStart=/usr/local/wsl-vpnkit/wsl-vpnkit\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'Environment="VMEXEC_PATH=/usr/local/wsl-vpnkit/wsl-vm"\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'Environment="GVPROXY_PATH=/usr/local/wsl-vpnkit/wsl-gvproxy.exe"\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'Restart=always\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'KillMode=mixed\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf '\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf '[Install]\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && printf 'WantedBy=multi-user.target\n' >> /etc/systemd/system/wsl-vpnkit.service \
+    && systemctl enable wsl-vpnkit.service
 
 # Clean, ensure no bashrc has dangerous mount lines
 RUN sed -i '/make-rshared/d' /etc/skel/.bashrc || true \

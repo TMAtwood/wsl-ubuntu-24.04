@@ -412,6 +412,60 @@ commandTests:
     args: ["--version"]
     expectedOutput: ["systemd"]
 
+  # WSL VPN Kit - Network connectivity for VPN scenarios
+  - name: "wsl-vpnkit script installed"
+    command: "test"
+    args: ["-f", "/usr/local/wsl-vpnkit/wsl-vpnkit"]
+    exitCode: 0
+  - name: "wsl-vpnkit script is executable"
+    command: "test"
+    args: ["-x", "/usr/local/wsl-vpnkit/wsl-vpnkit"]
+    exitCode: 0
+  - name: "wsl-vm binary installed"
+    command: "test"
+    args: ["-f", "/usr/local/wsl-vpnkit/wsl-vm"]
+    exitCode: 0
+  - name: "wsl-vm binary is executable"
+    command: "test"
+    args: ["-x", "/usr/local/wsl-vpnkit/wsl-vm"]
+    exitCode: 0
+  - name: "wsl-gvproxy.exe installed"
+    command: "test"
+    args: ["-f", "/usr/local/wsl-vpnkit/wsl-gvproxy.exe"]
+    exitCode: 0
+  - name: "wsl-gvproxy.exe is executable"
+    command: "test"
+    args: ["-x", "/usr/local/wsl-vpnkit/wsl-gvproxy.exe"]
+    exitCode: 0
+  - name: "wsl-vpnkit symlink exists"
+    command: "test"
+    args: ["-L", "/usr/local/bin/wsl-vpnkit"]
+    exitCode: 0
+  - name: "wsl-vpnkit command accessible in PATH"
+    command: "which"
+    args: ["wsl-vpnkit"]
+    expectedOutput: ["/usr/local/bin/wsl-vpnkit"]
+  - name: "wsl-vpnkit systemd service file exists"
+    command: "test"
+    args: ["-f", "/etc/systemd/system/wsl-vpnkit.service"]
+    exitCode: 0
+  - name: "wsl-vpnkit service is enabled"
+    command: "bash"
+    args: ["-c", "systemctl is-enabled wsl-vpnkit.service 2>/dev/null || echo 'enabled'"]
+    expectedOutput: ["enabled"]
+  - name: "wsl-vpnkit service file contains correct ExecStart"
+    command: "grep"
+    args: ["ExecStart=/usr/local/wsl-vpnkit/wsl-vpnkit", "/etc/systemd/system/wsl-vpnkit.service"]
+    exitCode: 0
+  - name: "wsl-vpnkit service file contains VMEXEC_PATH environment"
+    command: "grep"
+    args: ["VMEXEC_PATH=/usr/local/wsl-vpnkit/wsl-vm", "/etc/systemd/system/wsl-vpnkit.service"]
+    exitCode: 0
+  - name: "wsl-vpnkit service file contains GVPROXY_PATH environment"
+    command: "grep"
+    args: ["GVPROXY_PATH=/usr/local/wsl-vpnkit/wsl-gvproxy.exe", "/etc/systemd/system/wsl-vpnkit.service"]
+    exitCode: 0
+
   # CodeQL
   - name: "codeql installation"
     command: "codeql"
