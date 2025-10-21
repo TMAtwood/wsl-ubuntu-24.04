@@ -442,6 +442,12 @@ COPY NuGet.Config /home/root/.nuget/NuGet/NuGet.Config
 WORKDIR /home/root
 USER root
 
+# Add Mozilla Team PPA for Firefox (Ubuntu 24.04's default firefox package requires snap)
+RUN add-apt-repository -y ppa:mozillateam/ppa \
+    && printf 'Package: *\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001\n' > /etc/apt/preferences.d/mozilla-firefox \
+    && apt-get -y update \
+    && rm -rf /var/lib/apt/lists/*
+
 # Added as a workaround for the issue with the latest version of the Azure CLI
 RUN sh -c 'echo "deb http://archive.ubuntu.com/ubuntu jammy main universe" > /etc/apt/sources.list.d/jammy.list' \
     && curl -sL https://aka.ms/InstallAzureCLIDeb | bash \
