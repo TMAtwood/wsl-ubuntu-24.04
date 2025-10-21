@@ -388,6 +388,86 @@ commandTests:
     args: ["--version"]
     expectedOutput: ["VIM"]
 
+  # Web Browsers
+  - name: "firefox installation (via snap)"
+    command: "snap"
+    args: ["list", "firefox"]
+    expectedOutput: ["firefox"]
+  - name: "google-chrome installation"
+    command: "google-chrome"
+    args: ["--version"]
+    expectedOutput: ["Google Chrome"]
+  - name: "microsoft-edge installation"
+    command: "microsoft-edge"
+    args: ["--version"]
+    expectedOutput: ["Microsoft Edge"]
+
+  # Audio & Video Tools
+  - name: "ffmpeg installation"
+    command: "ffmpeg"
+    args: ["-version"]
+    expectedOutput: ["ffmpeg version"]
+  - name: "vlc installation"
+    command: "vlc"
+    args: ["--version"]
+    expectedOutput: ["VLC version"]
+  - name: "pulseaudio installation"
+    command: "pulseaudio"
+    args: ["--version"]
+    expectedOutput: ["pulseaudio"]
+  - name: "pactl installation"
+    command: "pactl"
+    args: ["--version"]
+    expectedOutput: ["pactl"]
+  - name: "pavucontrol installation"
+    command: "which"
+    args: ["pavucontrol"]
+    expectedOutput: ["/usr/bin/pavucontrol"]
+  - name: "alsamixer installation"
+    command: "which"
+    args: ["alsamixer"]
+    expectedOutput: ["/usr/bin/alsamixer"]
+  - name: "sox installation"
+    command: "sox"
+    args: ["--version"]
+    expectedOutput: ["SoX"]
+  - name: "audacity installation"
+    command: "which"
+    args: ["audacity"]
+    expectedOutput: ["/usr/bin/audacity"]
+  - name: "obs-studio installation"
+    command: "which"
+    args: ["obs"]
+    expectedOutput: ["/usr/bin/obs"]
+  - name: "v4l2-ctl installation"
+    command: "which"
+    args: ["v4l2-ctl"]
+    expectedOutput: ["/usr/bin/v4l2-ctl"]
+  - name: "gst-launch-1.0 installation"
+    command: "gst-launch-1.0"
+    args: ["--version"]
+    expectedOutput: ["gstreamer"]
+  - name: "dev user in audio group"
+    command: "groups"
+    args: ["dev"]
+    expectedOutput: ["audio"]
+  - name: "dev user in video group"
+    command: "groups"
+    args: ["dev"]
+    expectedOutput: ["video"]
+  - name: "pulseaudio config directory exists"
+    command: "test"
+    args: ["-d", "/home/dev/.config/pulse"]
+    exitCode: 0
+  - name: "pulseaudio client.conf exists"
+    command: "test"
+    args: ["-f", "/home/dev/.config/pulse/client.conf"]
+    exitCode: 0
+  - name: "asoundrc config exists"
+    command: "test"
+    args: ["-f", "/home/dev/.asoundrc"]
+    exitCode: 0
+
   # Compression Tools
   - name: "zip installation"
     command: "zip"
