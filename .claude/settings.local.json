@@ -13,7 +13,14 @@
       "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev bash -c \"grep -n ''HOMEBREW_LIBRARY='' /home/linuxbrew/.linuxbrew/Homebrew/bin/brew | head -5\")",
       "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev bash -c \"grep -n ''HOMEBREW_REPOSITORY='' /home/linuxbrew/.linuxbrew/Homebrew/bin/brew | head -5\")",
       "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev bash -c \"/home/linuxbrew/.linuxbrew/bin/brew --version 2>&1 | head -20\")",
-      "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev -- /home/linuxbrew/.linuxbrew/bin/brew --version)"
+      "Bash(wsl -d tmatwood-ubuntu-24.04 -u dev -- /home/linuxbrew/.linuxbrew/bin/brew --version)",
+      "Bash(container-structure-test test --image localhost/tmatwood-ubuntu-24.04:latest --config tests.yaml)",
+      "Bash(podman images)",
+      "Bash(IMAGE_NAME=\"localhost/tmatwood/ubuntu-24.04:latest\" container-structure-test test --image \"localhost/tmatwood/ubuntu-24.04:latest\" --config tests.yaml)",
+      "Bash(container-structure-test test --image \"localhost/tmatwood/ubuntu-24.04:latest\" --config tests.yaml)",
+      "Bash(hadolint Dockerfile)",
+      "Read(//c/mnt/c/Users/ThomasMAtwood/repos/**)",
+      "Bash(pre-commit run dockerlint --files Dockerfile)"
     ],
     "deny": [],
     "ask": []

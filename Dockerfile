@@ -107,6 +107,8 @@ RUN groupadd -g 1001 ${USER} \
     && useradd --create-home -g linuxbrew -s /bin/bash linuxbrew \
     && echo "linuxbrew ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
     && usermod -aG docker ${USER} \
+    && usermod -aG audio ${USER} \
+    && usermod -aG video ${USER} \
     && mkdir -p /home/linuxbrew/.linuxbrew \
     && chown -R linuxbrew:linuxbrew /home/linuxbrew/.linuxbrew
 
@@ -155,24 +157,8 @@ RUN (apt-get remove -y 'dotnet*' 'aspnet*' 'netstandard*' || true) \
 
 # See https://learn.microsoft.com/en-us/windows/wsl/wsl-config
 # WSL config: enable systemd, set default user, configure automount and network
-RUN tee /etc/wsl.conf >/dev/null <<'EOF'
-[boot]
-systemd=true
-
-[user]
-default=dev
-
-[automount]
-enabled=true
-options=metadata,umask=22,fmask=11
-mountFsTab=false
-
-[network]
-generateResolvConf=true
-
-[interop]
-appendWindowsPath=true
-EOF
+# hadolint ignore=SC2086
+RUN printf '[boot]\nsystemd=true\n\n[user]\ndefault=dev\n\n[automount]\nenabled=true\noptions=metadata,umask=22,fmask=11\nmountFsTab=false\n\n[network]\ngenerateResolvConf=true\n\n[interop]\nappendWindowsPath=true\n' > /etc/wsl.conf
 
 # Create custom resolv.conf override for DNS
 RUN echo "nameserver 1.1.1.1" > /etc/resolv.conf.override \
@@ -180,6 +166,7 @@ RUN echo "nameserver 1.1.1.1" > /etc/resolv.conf.override \
     && echo "nameserver 8.8.8.8" >> /etc/resolv.conf.override
 
 # Create symlinks to Windows tools (will work when WSL is running)
+# hadolint ignore=SC2015
 RUN ln -s '/mnt/c/Program Files/Git/mingw64/bin/git-credential-manager.exe' /usr/bin/git-credential-manager || true \
     && ln -s '/mnt/c/Program Files/Microsoft VS Code/code.exe' /usr/bin/code || true
 
@@ -446,9 +433,27 @@ USER root
 RUN sh -c 'echo "deb http://archive.ubuntu.com/ubuntu jammy main universe" > /etc/apt/sources.list.d/jammy.list' \
     && curl -sL https://aka.ms/InstallAzureCLIDeb | bash \
     && apt-get -y update \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add Google Chrome repository
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get -y update \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add Microsoft Edge repository
+RUN wget -q -O - https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-edge-keyring.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-edge-keyring.gpg] https://packages.microsoft.com/repos/edge stable main" | tee /etc/apt/sources.list.d/microsoft-edge.list \
+    && apt-get -y update \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install main packages including browsers
+RUN apt-get -y update \
     && apt-get -y upgrade \
     && apt-get -y install --no-install-recommends \
+        alsa-utils \
         apparmor-utils \
+        audacity \
         azure-cli \
         blobfuse2 \
         buildah \
@@ -466,13 +471,21 @@ RUN sh -c 'echo "deb http://archive.ubuntu.com/ubuntu jammy main universe" > /et
         extlinux \
         ffmpeg \
         file \
-        firefox \
         g++ \
         gawk \
         gcc \
         gimp \
         git-flow \
         git-lfs \
+        google-chrome-stable \
+        gstreamer1.0-plugins-base \
+        gstreamer1.0-plugins-good \
+        gstreamer1.0-plugins-bad \
+        gstreamer1.0-plugins-ugly \
+        gstreamer1.0-libav \
+        gstreamer1.0-tools \
+        gstreamer1.0-alsa \
+        gstreamer1.0-pulseaudio \
         htop \
         imagemagick \
         intltool \
@@ -481,38 +494,51 @@ RUN sh -c 'echo "deb http://archive.ubuntu.com/ubuntu jammy main universe" > /et
         iputils-ping \
         kubescape \
         less \
+        libasound2-plugins \
         libc6 \
         libgcc-s1 \
+        libgstreamer1.0-dev \
+        libgstreamer-plugins-base1.0-dev \
         libicu74 \
         liblttng-ust1t64 \
         libpulse0 \
+        libpulse-dev \
+        libsndfile1 \
         libssl3t64 \
         libstdc++6 \
         libunwind8 \
+        libv4l-dev \
         maven \
+        microsoft-edge-stable \
         nano \
         ncdu \
         net-tools \
         nuget \
         nvidia-cuda-toolkit \
         nvidia-cuda-toolkit-gcc \
+        obs-studio \
         p7zip-full \
         packer \
+        pavucontrol \
         pkg-config \
         podman-docker \
         policykit-1 \
         powershell \
         protobuf-compiler \
+        pulseaudio \
+        pulseaudio-utils \
         rsync \
         shellcheck\
         snapd \
         socat \
+        sox \
         ssh \
         sudo \
         synaptic \
         tasksel \
         tmux \
         uuid-runtime \
+        v4l-utils \
         vault \
         vlc \
         x11-apps \
@@ -520,6 +546,10 @@ RUN sh -c 'echo "deb http://archive.ubuntu.com/ubuntu jammy main universe" > /et
         zlib1g \
         zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Firefox via snap (as root user)
+# Firefox on Ubuntu 24.04 is a transitional apt package that requires snap installation
+RUN snap install firefox
 
 
 #  ██  ██           ██  █████  ██    ██  █████
@@ -817,20 +847,8 @@ RUN apt-get -y update \
     && rm -rf /var/lib/apt/lists/*
 
 # Systemd (system instance) oneshot unit to make "/" recursively shared
-RUN tee /etc/systemd/system/make-root-shared.service >/dev/null <<'EOF'
-[Unit]
-Description=Make / a shared mount for rootless containers
-DefaultDependencies=no
-After=local-fs.target
-Before=multi-user.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/mount --make-rshared /
-
-[Install]
-WantedBy=multi-user.target
-EOF
+# hadolint ignore=SC2086
+RUN printf '[Unit]\nDescription=Make / a shared mount for rootless containers\nDefaultDependencies=no\nAfter=local-fs.target\nBefore=multi-user.target\n\n[Service]\nType=oneshot\nExecStart=/usr/bin/mount --make-rshared /\n\n[Install]\nWantedBy=multi-user.target\n' > /etc/systemd/system/make-root-shared.service
 
 # Enable the system unit (creates the wants/ symlink)
 RUN ln -s ../make-root-shared.service /etc/systemd/system/multi-user.target.wants/make-root-shared.service || true
@@ -842,12 +860,9 @@ RUN echo 'if [ -f "/home/linuxbrew/.linuxbrew/opt/bash-git-prompt/share/gitpromp
     && echo "fi" >> /home/${USER}/.bashrc
 
 # Podman engine config: use systemd cgroups + journald events (per-user default via /etc/skel)
+# hadolint ignore=SC2086
 RUN mkdir -p /etc/skel/.config/containers \
- && tee /etc/skel/.config/containers/containers.conf >/dev/null <<'EOF'
-[engine]
-cgroup_manager = "systemd"
-events_logger = "journald"
-EOF
+ && printf '[engine]\ncgroup_manager = "systemd"\nevents_logger = "journald"\n' > /etc/skel/.config/containers/containers.conf
 
 # Give the current user the same containers.conf
 RUN mkdir -p /home/${USER}/.config/containers \
@@ -859,6 +874,7 @@ RUN mkdir -p /home/${USER}/.config/containers \
 # (Optional) Pre-enable podman.socket for all users' systemd --user via global wants
 # This avoids needing to run `systemctl --user enable podman.socket` on first login.
 # If your distro places the unit in /usr/lib/systemd/user, this symlink works for all users.
+# hadolint ignore=SC2015
 RUN test -f /usr/lib/systemd/user/podman.socket && \
     mkdir -p /etc/systemd/user/default.target.wants && \
     ln -sf /usr/lib/systemd/user/podman.socket /etc/systemd/user/default.target.wants/podman.socket || true
@@ -882,6 +898,33 @@ RUN mkdir -p /home/${USER}/.ssh \
 RUN mkdir -p /var/lib/systemd/linger && \
     touch /var/lib/systemd/linger/${USER} && \
     chmod 0644 /var/lib/systemd/linger/${USER}
+
+
+#  ██  ██       █████  ██    ██ ██████  ██  ██████      ██    ██ ██ ██████  ███████  ██████
+# ████████     ██   ██ ██    ██ ██   ██ ██ ██    ██     ██    ██ ██ ██   ██ ██      ██    ██
+#  ██  ██      ███████ ██    ██ ██   ██ ██ ██    ██     ██    ██ ██ ██   ██ █████   ██    ██
+# ████████     ██   ██ ██    ██ ██   ██ ██ ██    ██      ██  ██  ██ ██   ██ ██      ██    ██
+#  ██  ██      ██   ██  ██████  ██████  ██  ██████        ████   ██ ██████  ███████  ██████
+
+# Configure PulseAudio for WSL2 audio support
+# PulseAudio will use Windows host audio via WSLg
+# hadolint ignore=SC2086
+RUN mkdir -p /home/${USER}/.config/pulse \
+    && printf '# Connect to PulseAudio server via WSLg\nautospawn = yes\ndaemon-binary = /bin/true\n\n# Use WSLg'\''s PulseAudio socket\ndefault-server = unix:/mnt/wslg/PulseServer\n' > /home/${USER}/.config/pulse/client.conf
+
+# Configure ALSA to use PulseAudio by default
+# hadolint ignore=SC2086
+RUN printf '# Use PulseAudio by default\npcm.!default {\n    type pulse\n    fallback "sysdefault"\n    hint {\n        show on\n        description "Default ALSA Output (via PulseAudio)"\n    }\n}\n\nctl.!default {\n    type pulse\n    fallback "sysdefault"\n}\n' > /home/${USER}/.asoundrc
+
+# Set ownership of audio config files
+RUN chown -R ${USER}:${GROUP} /home/${USER}/.config/pulse \
+    && chown ${USER}:${GROUP} /home/${USER}/.asoundrc
+
+# Add audio/video environment variables for WSLg
+RUN echo 'export PULSE_SERVER=unix:/mnt/wslg/PulseServer' >> /home/${USER}/.bashrc \
+    && echo 'export DISPLAY=:0' >> /home/${USER}/.bashrc \
+    && echo 'export WAYLAND_DISPLAY=wayland-0' >> /home/${USER}/.bashrc \
+    && echo 'export XDG_RUNTIME_DIR=/run/user/1001' >> /home/${USER}/.bashrc
 
 
 #  ██  ██      ██     ██ ███████ ██          ██    ██ ██████  ███    ██ ██   ██ ██ ████████
@@ -921,6 +964,7 @@ RUN printf '[Unit]\n' > /etc/systemd/system/wsl-vpnkit.service \
     && systemctl enable wsl-vpnkit.service
 
 # Clean, ensure no bashrc has dangerous mount lines
+# hadolint ignore=SC2015
 RUN sed -i '/make-rshared/d' /etc/skel/.bashrc || true \
  && sed -i '/mount[[:space:]]\+\/[[:space:]]*$/d' /etc/skel/.bashrc || true \
  && sed -i '/make-rshared/d' /home/${USER}/.bashrc || true \
