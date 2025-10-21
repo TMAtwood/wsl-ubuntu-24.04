@@ -546,6 +546,12 @@ commandTests:
     args: ["GVPROXY_PATH=/usr/local/wsl-vpnkit/wsl-gvproxy.exe", "/etc/systemd/system/wsl-vpnkit.service"]
     exitCode: 0
 
+  # Web Browsers
+  - name: "firefox installation (via Mozilla PPA)"
+    command: "firefox"
+    args: ["--version"]
+    expectedOutput: ["Mozilla Firefox"]
+
   # CodeQL
   - name: "codeql installation"
     command: "codeql"
